@@ -1,0 +1,46 @@
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+
+# Distribution / Packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.eggs
+
+# Testing
+.coverage
+.tox/
+.nox/
+.pytest_cache/
+.cache/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Anki-specific files
+*.anki2
+
+# OS-specific files
+Thumbs.db
+.DS_Store
+
+# Others
+MANIFEST
