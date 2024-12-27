@@ -1,8 +1,6 @@
 # Typst2Anki
 
-<video src="assets/typst2anki.mp4" controls="controls" style="max-width: 100%;">
-  Your browser does not support the video tag.
-</video>
+![Demo Video](assets/typst2anki.gif)
 
 **Typst2Anki** is a tool designed to seamlessly integrate flashcard creation into your Typst-based notes. By utilizing a custom Typst package, you can create cards directly in your notes and sync them to a selected Anki deck with ease. This allows you to turn your study material into flashcards without leaving your Typst workflow.
 
