@@ -2,17 +2,21 @@ def parse_cards(file_path, callback):
     inside_card = False
     balance = 0
     current_card = ""
+    card_types = ["#card(", "#custom_card("]
 
     with open(file_path, "r") as file:
         file_content = file.read()
 
     i = 0
     while i < len(file_content):
-        if not inside_card and file_content[i:i+6] == "#card(":
+        if not inside_card and any(file_content[i:i+len(card_type)] == card_type for card_type in card_types):
             inside_card = True
-            balance = 1
-            current_card = "#card("
-            i += 6
+            for card_type in card_types:
+                if file_content[i:i+len(card_type)] == card_type:
+                    balance = 1
+                    current_card = card_type
+                    i += len(card_type)
+                    break
             continue
 
         if inside_card:

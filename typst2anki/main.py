@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typst2anki.parse import parse_cards
 from typst2anki.get_data import extract_ids_and_decks
-from typst2anki.generator import generate_card_file
+from typst2anki.generator import generate_card_file, ensure_ankiconf_file
 from typst2anki.process import process_images
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -12,6 +12,8 @@ def main():
     if not typ_files_path.is_dir():
         logging.error(f"{typ_files_path} is not a valid directory.")
         return
+
+    ensure_ankiconf_file(typ_files_path)
 
     output_path = Path(".").resolve()
     for typ_file in typ_files_path.glob("*.typ"):
