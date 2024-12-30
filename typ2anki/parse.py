@@ -2,7 +2,7 @@ def parse_cards(file_path, callback):
     inside_card = False
     balance = 0
     current_card = ""
-    card_types = ["#card(", "#custom_card("]
+    card_types = ["#card(", "#custom-card("]
 
     with open(file_path, "r") as file:
         file_content = file.read()

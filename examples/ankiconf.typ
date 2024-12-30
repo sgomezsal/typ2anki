@@ -1,4 +1,4 @@
-#import "@local/typst2anki:0.1.0": *
+#import "@local/typ2anki:0.1.0": *
 #import "@preview/alchemist:0.1.3": *
 #import "@preview/curryst:0.3.0": rule, proof-tree
 

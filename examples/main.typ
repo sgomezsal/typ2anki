@@ -1,26 +1,26 @@
 #import "ankiconf.typ": *
 #show: doc => conf(doc)
 
-#let custom_card(
+#let custom-card(
   id: "",
-  Q: "",
-  A: "",
+  q: "",
+  a: "",
   ..args
 ) = {
   card(
     id: id,
-    Q: Q,
-    A: A,
+    q: q,
+    a: a,
     container: true,
-    show_labels: true
+    show-labels: true
   )
 }
 
-#custom_card(
+#custom-card(
   id: "20241226124001",
-  target_deck: "Molecular Structures",
-  Q: "How are molecular connections represented in this structure?",
-  A: [
+  target-deck: "Molecular Structures",
+  q: "How are molecular connections represented in this structure?",
+  a: [
     #skeletize({
       molecule(name: "A", "A")
       single()
@@ -60,11 +60,11 @@
   ],
 )
 
-#custom_card(
+#custom-card(
   id: "20241226124002",
-  target_deck: "Security",
-  Q: "How to scan open ports on a local network?",
-  A: [
+  target-deck: "Security",
+  q: "How to scan open ports on a local network?",
+  a: [
     ```python
     import socket
     def scan_ports(ip, start_port, end_port):
@@ -83,10 +83,10 @@
   ],
 )
 
-#custom_card(
+#custom-card(
   id: "20241226123512",
-  Q: "How is a conclusion derived from labeled premises in this rule structure?",
-  A: [
+  q: "How is a conclusion derived from labeled premises in this rule structure?",
+  a: [
     #let tree = rule(
       label: [Label],
       name: [Rule name],

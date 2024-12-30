@@ -18,7 +18,7 @@ def generate_card_file(card, card_id, output_path):
     temp_file = "temporal.typ"
     output_file = Path(output_path) / f"{card_id}-{{p}}.png"
 
-    card_type = "custom_card" if "custom_card" in card else "card"
+    card_type = "custom-card" if "custom-card" in card else "card"
 
     template = f"""
 #import "ankiconf.typ": *
@@ -33,16 +33,16 @@ def generate_card_file(card, card_id, output_path):
 
 #let {card_type}(
   id: "",
-  Q: "",
-  A: "",
+  q: "",
+  a: "",
   ..args
 ) = {{
   let args = arguments(..args, type: "basic")
   if args.at("type") == "basic" {{
     context[
-      #Q \\
+      #q \\
       #pagebreak()
-      #A
+      #a
     ]
   }}
 }}
