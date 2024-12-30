@@ -13,6 +13,7 @@
     radius: 0pt,
     width: auto,
     text(fill: rgb("#a2aabc"), it)
+
   )
   doc
 }
