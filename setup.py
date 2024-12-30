@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="typst2anki",
-    version="0.1.0",
+    version="0.1.1",
     author="sgomezsal",
     author_email="sgomezsalazar7@gmail.com",
     description="Convert Typst files into Anki cards automatically.",
