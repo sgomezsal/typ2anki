@@ -1,6 +1,6 @@
 #import "@preview/gentle-clues:1.1.0": *
 
-#let card_container(
+#let card-container(
   title: "Anki", 
   icon: image("assets/anki.svg"),
   ..args
@@ -15,40 +15,41 @@
 
 #let card(
   id: "",
-  Q: "",
-  A: "",
+  q: "",
+  a: "",
   ..args
 ) = {
   let args = arguments(
     type: "basic",
     container: false,
-    show_labels: false,
+    show-labels: false,
     ..args
   )
-  
+
   if args.at("container") == false {
-    if args.at("show_labels") == true {
+    if args.at("show-labels") == true {
       context [
-        Q: #Q \ 
-        A: #A
+        q: #q \ 
+        a: #a
       ]
     } else {
       context [
-        #Q \ 
-        #A
+        #q \
+        #a
       ]
     }
   } else {
-    if args.at("show_labels") == true {
-      card_container[
-        Q: #Q \ 
-        A: #A
+    if args.at("show-labels") == true {
+      card-container[
+        q: #q \ 
+        a: #a
       ]
     } else {
-      card_container[
-        #Q \ 
-        #A
+      card-container[
+        #q \ 
+        #a
       ]
     }
   }
 }
+

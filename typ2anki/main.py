@@ -1,9 +1,9 @@
 import logging
 from pathlib import Path
-from typst2anki.parse import parse_cards
-from typst2anki.get_data import extract_ids_and_decks
-from typst2anki.generator import generate_card_file, ensure_ankiconf_file
-from typst2anki.process import process_images
+from typ2anki.parse import parse_cards
+from typ2anki.get_data import extract_ids_and_decks
+from typ2anki.generator import generate_card_file, ensure_ankiconf_file
+from typ2anki.process import process_images
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
