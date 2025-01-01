@@ -1,10 +1,14 @@
 # Typ2Anki
 
 <div align="center">
-  <a href="https://www.youtube.com/watch?v=simotHOIWNQ" target="_blank">
-    <img src="https://img.youtube.com/vi/simotHOIWNQ/0.jpg" alt="Demo Video" width="600"/>
+  <a href="https://www.youtube.com/watch?v=simotHOIWNQ" target="_blank" style="display: inline-block; position: relative; text-decoration: none;">
+    <img src="https://img.youtube.com/vi/simotHOIWNQ/maxresdefault.jpg" alt="Demo Video" style="border: 2px solid #ccc; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 600px; height: auto;">
   </a>
-  <p><b>Watch the demo video on YouTube</b></p>
+  <p>
+    <a href="https://www.youtube.com/watch?v=simotHOIWNQ" target="_blank" style="text-decoration: none; font-weight: bold; color: #0073e6;">
+      ▶ Click to Watch the Demo Video on YouTube
+    </a>
+  </p>
 </div>
 
 **Typ2Anki** is a tool designed to integrate flashcard creation seamlessly into your Typst-based notes. By utilizing a custom Typst package, you can create cards directly in your notes and sync them effortlessly to a selected Anki deck. This enables you to transform study material into flashcards without disrupting your Typst workflow.
