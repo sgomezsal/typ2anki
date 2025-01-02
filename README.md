@@ -80,26 +80,75 @@
 
 ### Installing the Typst Package
 
+#### Method 1: Using Package Manager (Recommended)
+
 1. Add the Typ2Anki package to your Typst document:
 
    ```typst
    #import "@preview/typ2anki:0.1.0"
    ```
 
-2. Place your custom configuration file (`ankiconf.typ`) in the project directory for consistent flashcard rendering.
+#### Method 2: Manual Installation
 
+If you encounter issues with the package import, you can set up the package manually:
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/sgomezsal/typ2anki
+   cd typ2anki
+   ```
+
+2. Create the local package directory:
+   ```bash
+   mkdir -p ~/.local/share/typst/packages/local/typ2anki/0.1.0
+   ```
+
+3. Copy the package files (note the `-r` flag for recursive copy):
+   ```bash
+   cp -r src/ typst.toml ~/.local/share/typst/packages/local/typ2anki/0.1.0
+   ```
+
+4. Copy the configuration file:
+   ```bash
+   cp ankiconf.typ ~/.local/share/typst/packages/local/typ2anki/0.1.0/src/
+   ```
+
+5. Edit the configuration file:
+   ```bash
+   nano ~/.local/share/typst/packages/local/typ2anki/0.1.0/src/ankiconf.typ
+   ```
+   Make sure it contains:
    ```typst
-   // Custom imports for flashcards
-   #import "@preview/pkgs"
+   #import "@local/typ2anki:0.1.0": *
 
    #let conf(
      doc,
    ) = {
-     // Custom configurations
      doc
    }
    ```
 
+6. Navigate to your flashcards directory:
+   ```bash
+   cd ~/Documents/Flashcards/  # or your preferred location
+   ```
+
+7. Create a new Typst document (e.g., `test.typ`):
+   ```typst
+   #import "@local/typ2anki:0.1.0": *
+
+   #card(
+     id: "001",
+     target-deck: "Target",
+     q: "Question",
+     a: "Answer"
+   )
+   ```
+
+6. Run typ2anki in your project directory:
+   ```bash
+   typ2anki .
+   ```
 ---
 
 ## Usage
@@ -111,9 +160,9 @@
    ```typst
    #card(
      id: "001",
-     target-deck: "Typst",
-     q: "What is Typst?",
-     a: "A modern typesetting system."
+     target_deck: "Typst",
+     Q: "What is Typst?",
+     A: "A modern typesetting system."
    )
    ```
 
@@ -148,14 +197,14 @@ To modify card appearance, you can define custom card logic:
 ```typst
 #let custom-card(
   id: "",
-  q: "",
-  a: "",
+  Q: "",
+  A: "",
   ..args
 ) = {
   card(
     id: id,
-    q: q,
-    a: a,
+    Q: Q,
+    A: A,
     container: true,
     show-labels: true
   )
