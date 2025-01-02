@@ -108,44 +108,40 @@ If you encounter issues with the package import, you can set up the package manu
    cp -r src/ typst.toml ~/.local/share/typst/packages/local/typ2anki/0.1.0
    ```
 
-4. Copy the configuration file:
-   ```bash
-   cp ankiconf.typ ~/.local/share/typst/packages/local/typ2anki/0.1.0/src/
-   ```
-
-5. Edit the configuration file:
-   ```bash
-   nano ~/.local/share/typst/packages/local/typ2anki/0.1.0/src/ankiconf.typ
-   ```
-   Make sure it contains:
-   ```typst
-   #import "@local/typ2anki:0.1.0": *
-
-   #let conf(
-     doc,
-   ) = {
-     doc
-   }
-   ```
-
-6. Navigate to your flashcards directory:
+4. Navigate to your flashcards directory:
    ```bash
    cd ~/Documents/Flashcards/  # or your preferred location
    ```
 
-7. Create a new Typst document (e.g., `test.typ`):
+5. Create your `ankiconf.typ` file with basic configurations:
+
    ```typst
+   // Custom imports for flashcards
    #import "@local/typ2anki:0.1.0": *
+   #import "@preview/pkgs"
+
+   #let conf(
+     doc,
+   ) = {
+     // Custom configurations
+     doc
+   }
+   ```
+
+6. Create a new Typst document (e.g., `main.typ`):
+   ```typst
+   #import "ankiconf.typ": *
+   #show: doc => conf(doc)
 
    #card(
      id: "001",
-     target-deck: "Target",
+     target-deck: "Target-Deck",
      q: "Question",
      a: "Answer"
    )
    ```
 
-6. Run typ2anki in your project directory:
+7. Run typ2anki in your project directory:
    ```bash
    typ2anki .
    ```
@@ -160,9 +156,9 @@ If you encounter issues with the package import, you can set up the package manu
    ```typst
    #card(
      id: "001",
-     target_deck: "Typst",
-     Q: "What is Typst?",
-     A: "A modern typesetting system."
+     target-deck: "Typst",
+     q: "What is Typst?",
+     a: "A modern typesetting system."
    )
    ```
 
@@ -170,6 +166,7 @@ If you encounter issues with the package import, you can set up the package manu
 
    ```typst
    // Custom imports for flashcards
+   #import "@preview/typ2anki:0.1.0"
    #import "@preview/pkgs"
 
    #let conf(
@@ -197,14 +194,14 @@ To modify card appearance, you can define custom card logic:
 ```typst
 #let custom-card(
   id: "",
-  Q: "",
-  A: "",
+  q: "",
+  a: "",
   ..args
 ) = {
   card(
     id: id,
-    Q: Q,
-    A: A,
+    q: q,
+    a: a,
     container: true,
     show-labels: true
   )
