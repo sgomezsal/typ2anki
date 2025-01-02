@@ -111,9 +111,9 @@
    ```typst
    #card(
      id: "001",
-     target_deck: "Typst",
-     Q: "What is Typst?",
-     A: "A modern typesetting system."
+     target-deck: "Typst",
+     q: "What is Typst?",
+     a: "A modern typesetting system."
    )
    ```
 
@@ -148,14 +148,14 @@ To modify card appearance, you can define custom card logic:
 ```typst
 #let custom-card(
   id: "",
-  Q: "",
-  A: "",
+  q: "",
+  a: "",
   ..args
 ) = {
   card(
     id: id,
-    Q: Q,
-    A: A,
+    q: q,
+    a: a,
     container: true,
     show-labels: true
   )
