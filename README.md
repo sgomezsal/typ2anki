@@ -80,16 +80,44 @@
 
 ### Installing the Typst Package
 
+#### Method 1: Using Package Manager (Recommended)
+
 1. Add the Typ2Anki package to your Typst document:
 
    ```typst
    #import "@preview/typ2anki:0.1.0": *
    ```
 
-2. Place your custom configuration file (`ankiconf.typ`) in the project directory for consistent flashcard rendering.
+#### Method 2: Manual Installation
+
+If you encounter issues with the package import, you can set up the package manually:
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/sgomezsal/typ2anki
+   cd typ2anki
+   ```
+
+2. Create the local package directory:
+   ```bash
+   mkdir -p ~/.local/share/typst/packages/local/typ2anki/0.1.0
+   ```
+
+3. Copy the package files (note the `-r` flag for recursive copy):
+   ```bash
+   cp -r src/ typst.toml ~/.local/share/typst/packages/local/typ2anki/0.1.0
+   ```
+
+4. Navigate to your flashcards directory:
+   ```bash
+   cd ~/Documents/Flashcards/  # or your preferred location
+   ```
+
+5. Create your `ankiconf.typ` file with basic configurations:
 
    ```typst
    // Custom imports for flashcards
+   #import "@local/typ2anki:0.1.0": *
    #import "@preview/pkgs"
 
    #let conf(
@@ -100,6 +128,23 @@
    }
    ```
 
+6. Create a new Typst document (e.g., `main.typ`):
+   ```typst
+   #import "ankiconf.typ": *
+   #show: doc => conf(doc)
+
+   #card(
+     id: "001",
+     target-deck: "Target-Deck",
+     q: "Question",
+     a: "Answer"
+   )
+   ```
+
+7. Run typ2anki in your project directory:
+   ```bash
+   typ2anki .
+   ```
 ---
 
 ## Usage
@@ -121,6 +166,7 @@
 
    ```typst
    // Custom imports for flashcards
+   #import "@preview/typ2anki:0.1.0"
    #import "@preview/pkgs"
 
    #let conf(
