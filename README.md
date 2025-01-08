@@ -83,7 +83,7 @@
 1. Add the Typ2Anki package to your Typst document:
 
    ```typst
-   #import "@preview/typ2anki:0.1.0"
+   #import "@preview/typ2anki:0.1.0": *
    ```
 
 2. Place your custom configuration file (`ankiconf.typ`) in the project directory for consistent flashcard rendering.
