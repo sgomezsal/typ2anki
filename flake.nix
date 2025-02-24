@@ -45,6 +45,9 @@
           packages = [
             inputs.self.packages.${system}.default
             pkgs.typst
+            pkgs.pylint
+            pkgs.python313Packages.python-lsp-server
+            pkgs.black
           ];
           shellHook = # bash
             ''
