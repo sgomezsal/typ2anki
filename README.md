@@ -52,9 +52,11 @@
 
 1. Open Anki and navigate to **Tools > Add-ons**.
 2. Click **Get Add-ons** and enter the following code to install AnkiConnect:
+
    ```
    2055492159
    ```
+
    Alternatively, visit the [AnkiConnect Add-on page](https://ankiweb.net/shared/info/2055492159) to learn more.
 3. Restart Anki to activate the add-on.
 4. Verify that AnkiConnect is running by visiting [http://localhost:8765](http://localhost:8765) in your browser. If it loads, the add-on is properly installed and functioning.
@@ -76,6 +78,16 @@
    typ2anki --help
    ```
 
+
+#### Nix Flake
+
+On systems with nix installed and flakes enabled, the 
+python package can be executed with the following command:
+
+```sh
+nix run github:sgomezsal/typ2anki
+```
+
 ---
 
 ### Installing the Typst Package
@@ -93,22 +105,26 @@
 If you encounter issues with the package import, you can set up the package manually:
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/sgomezsal/typ2anki
    cd typ2anki
    ```
 
 2. Create the local package directory:
+
    ```bash
    mkdir -p ~/.local/share/typst/packages/local/typ2anki/0.1.0
    ```
 
 3. Copy the package files (note the `-r` flag for recursive copy):
+
    ```bash
    cp -r src/ typst.toml ~/.local/share/typst/packages/local/typ2anki/0.1.0
    ```
 
 4. Navigate to your flashcards directory:
+
    ```bash
    cd ~/Documents/Flashcards/  # or your preferred location
    ```
@@ -129,6 +145,7 @@ If you encounter issues with the package import, you can set up the package manu
    ```
 
 6. Create a new Typst document (e.g., `main.typ`):
+
    ```typst
    #import "ankiconf.typ": *
    #show: doc => conf(doc)
@@ -142,9 +159,11 @@ If you encounter issues with the package import, you can set up the package manu
    ```
 
 7. Run typ2anki in your project directory:
+
    ```bash
    typ2anki .
    ```
+
 ---
 
 ## Usage
