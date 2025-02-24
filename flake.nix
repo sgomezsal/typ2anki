@@ -25,7 +25,6 @@
 
           dependencies = [
             pkgs.python3.pkgs.requests
-            pkgs.typst
           ];
 
           pythonImportsCheck = [
