@@ -7,6 +7,10 @@ __pycache__/
 venv/
 env/
 
+# Nix
+.envrc
+.direnv/
+
 # Distribution / Packaging
 .Python
 build/
