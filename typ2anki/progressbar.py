@@ -108,6 +108,6 @@ class FileProgressBar(ProgressBar):
             self.max_len_mut = len(text)
     
     def done(self):
-        self.update(self.total, f"Processed file {self.title}".ljust(self.max_len_mut))
+        self.update(self.total, f"Done!".ljust(self.max_len_mut))
         
     
