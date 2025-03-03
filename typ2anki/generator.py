@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from typ2anki.api import hash_string
 from typ2anki.config import config
 
 def ensure_ankiconf_file(directory):
@@ -19,6 +20,13 @@ def ensure_ankiconf_file(directory):
         
         with open(ankiconf_path, "w") as file:
             file.write(default_content)
+
+def get_ankiconf_hash(directory):
+    ankiconf_path = Path(directory) / "ankiconf.typ"
+    if not ankiconf_path.exists():
+        raise Exception(f"Ankiconf file not found at {ankiconf_path}")
+    return hash_string(ankiconf_path.read_text())
+
 
 def generate_card_file(card, card_id, output_path):
     temp_file = Path(output_path) / "temporal.typ"

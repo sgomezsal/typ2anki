@@ -2,10 +2,12 @@ import logging
 from pathlib import Path
 import sys
 from typing import Dict, List, Set
+from typ2anki.api import hash_string
+from typ2anki.cardscache import CardsCacheManager
 from typ2anki.config import config
 from typ2anki.parse import parse_cards
 from typ2anki.get_data import extract_ids_and_decks
-from typ2anki.generator import generate_card_file, ensure_ankiconf_file
+from typ2anki.generator import generate_card_file, ensure_ankiconf_file, get_ankiconf_hash
 from typ2anki.process import process_create_deck, process_image
 from typ2anki.progressbar import FileProgressBar
 
@@ -19,6 +21,13 @@ def main():
         return
 
     ensure_ankiconf_file(typ_files_path)
+
+    cards_cache_manager = CardsCacheManager()
+    cards_cache_manager.add_static_hashes(
+        get_ankiconf_hash(typ_files_path),
+        conf.config_hash
+    )
+
 
     output_path = typ_files_path
 
@@ -53,9 +62,11 @@ def main():
                 if card_id in card_ids:
                     raise Exception(f"Duplicate card id {card_id}")
                 card_ids.add(card_id)
-
             
+            cards_cache_manager.add_current_card_hash(deck_name, card_id, hash_string(card))
+
             files_cards[file_cards_key].append((deck_name, card_id, card))
+
         if len(files_cards[file_cards_key]) == 0:
             del files_cards[file_cards_key]
 
@@ -92,6 +103,7 @@ def main():
         for deck_name, card_id, card in cards:
             unique_decks.add(deck_name)
             bar.next(f"Generating card for {deck_name}.{card_id}")
+            if not cards_cache_manager.card_needs_update(deck_name, card_id): continue
             generate_card_file(card, card_id, output_path)
 
         for deck_name in unique_decks:
@@ -101,8 +113,11 @@ def main():
 
         for deck_name, card_id, card in cards:
             bar.next(f"Pushing card for {deck_name}.{card_id}")
+            if not cards_cache_manager.card_needs_update(deck_name, card_id): continue
             process_image(deck_name, card_id, card, output_path)
         bar.done()
+    
+    if not conf.dry_run: cards_cache_manager.save_cache(output_path)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,17 @@
 import base64
 import requests
 from pathlib import Path
+import hashlib
 
 ANKI_CONNECT_URL = "http://localhost:8765"
+
+CARDS_CACHE_FILENAME = "_typ-cards-cache.json"
+
+
+def hash_string(input_string):
+    hasher = hashlib.md5()
+    hasher.update(input_string.encode('utf-8'))
+    return hasher.hexdigest()
 
 def send_request(payload):
     response = requests.post(ANKI_CONNECT_URL, json=payload).json()
@@ -25,6 +34,28 @@ def upload_media(file_path):
     }
     send_request(payload)
     return file_path.name
+
+def get_media_dir_path():
+    payload = {
+        "action": "getMediaDirPath",
+        "version": 6,
+    }
+    return send_request(payload)
+
+def get_cards_cache_string():
+    try:
+        payload = {
+            "action": "retrieveMediaFile",
+            "version": 6,
+            "params": {
+                "filename": CARDS_CACHE_FILENAME
+            }
+        }
+        s = send_request(payload)
+        return base64.b64decode(s).decode("utf-8")
+    except Exception as e:
+        return None
+
 
 def create_deck(deck_name):
     payload = {"action": "createDeck", "version": 6, "params": {"deck": deck_name}}
