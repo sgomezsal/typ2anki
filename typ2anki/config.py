@@ -38,9 +38,7 @@ class Config:
         path = Path(self.asked_path).resolve()
         if path.is_file() and path.suffix == ".zip":
             self.__is_zip = True
-            tmpdirname = tempfile.TemporaryDirectory(
-                delete=False
-            ).name
+            tmpdirname = tempfile.mkdtemp()
             print(f"Extracting {path} to {tmpdirname}")
             with zipfile.ZipFile(path, 'r') as zip_ref:
                 zip_ref.extractall(tmpdirname)
