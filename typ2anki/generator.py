@@ -30,6 +30,33 @@ def generate_card_file(card, card_id, output_path):
 
     card_type = "custom-card" if "custom-card" in card else "card"
 
+    max_width = config().max_card_width
+    display_with_width = ""
+    
+    if max_width == "auto":
+        display_with_width = """
+#let display_with_width(body) = {
+  body
+}
+"""
+    else:
+        display_with_width = f"""
+#let display_with_width(body) = {{
+  layout(size => {{
+    let (width,) = measure(body)
+    if width > {max_width} {{
+      width = {max_width}
+    }} else {{
+      width = auto
+    }}
+    context[
+      #block(width: width,body)
+    ]
+  }})
+}}
+"""
+        
+
     template = f"""
 #import "ankiconf.typ": *
 #show: doc => conf(doc)
@@ -41,6 +68,8 @@ def generate_card_file(card, card_id, output_path):
   fill: rgb("#00000000"),
 )
 
+{display_with_width}
+
 #let {card_type}(
   id: "",
   q: "",
@@ -50,9 +79,9 @@ def generate_card_file(card, card_id, output_path):
   let args = arguments(..args, type: "basic")
   if args.at("type") == "basic" {{
     context[
-      #q \\
+      #display_with_width(q) \\
       #pagebreak()
-      #a
+      #display_with_width(a)
     ]
   }}
 }}

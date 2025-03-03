@@ -13,6 +13,7 @@ class Config:
     exclude_decks: List[str]
     asked_path: str
     dry_run: bool = False
+    max_card_width: str = "auto"
 
     # The real path to the Typst documents folder, is set in post init to support zip files
     path: str = None
@@ -63,6 +64,12 @@ def parse_config() -> Config:
         default=[],
         help="Specify decks to exclude. Use multiple -e options to exclude multiple decks. Glob patterns are supported."
     )
+    parser.add_argument(
+        "--max-card-width",
+        type=str,
+        default="auto",
+        help="Specify the maximum width of the cards, in typst units. Use 'auto' to not limit the width."
+    )
     # parser.add_argument(
     #     "--anki-connect-url", "-u", 
     #     default="http://localhost:8765", 
@@ -87,7 +94,8 @@ def parse_config() -> Config:
         check_duplicates=args.check_duplicates,
         exclude_decks=args.exclude_decks,
         asked_path=" ".join(args.path), # Join the path in case it contains spaces
-        dry_run=args.dry_run
+        dry_run=args.dry_run,
+        max_card_width=args.max_card_width
     )
 
 cached_config = None
