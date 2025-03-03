@@ -46,18 +46,22 @@ def main():
             if card_id == "Unknown ID":
                 continue
             
+            if conf.is_deck_excluded(deck_name):
+                continue
+            
             if conf.check_duplicates:
                 if card_id in card_ids:
                     raise Exception(f"Duplicate card id {card_id}")
                 card_ids.add(card_id)
-            
-            if conf.is_deck_excluded(deck_name):
-                continue
 
             
             files_cards[file_cards_key].append((deck_name, card_id, card))
         if len(files_cards[file_cards_key]) == 0:
             del files_cards[file_cards_key]
+
+    if len(files_cards) == 0:
+        print("No cards found.")
+        return
 
     # Create progress bars
     progress_bars: Dict[str, FileProgressBar] = {}
