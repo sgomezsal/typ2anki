@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+from typ2anki.config import config
+
 def ensure_ankiconf_file(directory):
     ankiconf_path = Path(directory) / "ankiconf.typ"
     if not ankiconf_path.exists():
@@ -10,13 +12,21 @@ def ensure_ankiconf_file(directory):
 ) = {
   doc
 }
-"""
+"""     
+        if config().dry_run:
+            print(f"Creating ankiconf file at {ankiconf_path}")
+            return
+        
         with open(ankiconf_path, "w") as file:
             file.write(default_content)
 
 def generate_card_file(card, card_id, output_path):
-    temp_file = "temporal.typ"
+    temp_file = Path(output_path) / "temporal.typ"
     output_file = Path(output_path) / f"{card_id}-{{p}}.png"
+
+    if config().dry_run:
+        print(f"Generating card file for card {card_id} at {output_file}")
+        return
 
     card_type = "custom-card" if "custom-card" in card else "card"
 
@@ -48,11 +58,10 @@ def generate_card_file(card, card_id, output_path):
 }}
 {card}
 """
-
+    
     try:
         with open(temp_file, "w") as file:
             file.write(template)
-
         os.system(f"typst c {temp_file} {output_file}")
     finally:
         if os.path.exists(temp_file):
