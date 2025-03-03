@@ -22,7 +22,7 @@ def ensure_ankiconf_file(directory):
 
 def generate_card_file(card, card_id, output_path):
     temp_file = Path(output_path) / "temporal.typ"
-    output_file = Path(output_path) / f"{card_id}-{{p}}.png"
+    output_file = Path(output_path) / f"typ-{card_id}-{{p}}.png"
 
     if config().dry_run:
         print(f"Generating card file for card {card_id} at {output_file}")
