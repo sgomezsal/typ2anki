@@ -93,7 +93,7 @@ def main():
         for file_cards_key in progress_bars:
             progress_bars[file_cards_key].init()
     
-    
+    compiled_cards = 0
     # Generate cards and images
     for file_cards_key in files_cards:
         cards = files_cards[file_cards_key]
@@ -109,6 +109,8 @@ def main():
             if not generate_card_file(card, card_id, file_output_path):
                 failed_cards.add(card_id)
                 cards_cache_manager.remove_card_hash(deck_name, card_id)
+            else:
+                compiled_cards += 1
 
         for deck_name in unique_decks:
             process_create_deck(deck_name)            
@@ -131,6 +133,7 @@ def main():
     if not conf.dry_run:
         ProgressBarManager.get_instance().finalize_output()
         cards_cache_manager.save_cache(output_path)
+        print(f"Compiled a total of {compiled_cards} cards.")
 
 
 if __name__ == "__main__":
