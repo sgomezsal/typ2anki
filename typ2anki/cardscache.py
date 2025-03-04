@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Dict
 from typ2anki.api import get_cards_cache_string, hash_string, upload_media, hash_string, CARDS_CACHE_FILENAME
 import json
 from typ2anki.config import config
@@ -9,7 +10,8 @@ class CardsCacheManager:
     current_ankiconf_hash = None
     current_config_hash = None
     static_hash = None
-    current_card_hashes = {}
+    current_card_hashes: Dict[str,str] = {}
+    cache: Dict[str,str] = {}
 
     def __init__(self):
         self.load_cache()
@@ -40,6 +42,10 @@ class CardsCacheManager:
     
     def add_current_card_hash(self, deck_name,card_id,card_hash):
         self.current_card_hashes[f"{deck_name}_{card_id}"] = self.static_hash + card_hash
+    
+    def remove_card_hash(self,deck_name,card_id):
+        self.current_card_hashes.pop(f"{deck_name}_{card_id}",None)
+        self.cache.pop(f"{deck_name}_{card_id}",None)
     
     def card_needs_update(self,deck_name,card_id):
         if config().check_checksums == False:

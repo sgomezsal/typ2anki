@@ -49,6 +49,9 @@ class Config:
             raise ValueError(f"{path} is not a valid directory.")
         self.path = self.asked_path
 
+    def path_relative_to_root(self,p: Path) -> Path:
+        return p.relative_to(self.path)
+
     def destruct(self):
         if self.__is_zip and self.path:
             shutil.rmtree(self.path)

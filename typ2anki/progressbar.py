@@ -11,6 +11,8 @@ RENDER_INTERVAL = 0.5
 # Wrapper around the progress bar to allow for multiple progress bars, and to handle user interrupts
 class ProgressBarManager:
     _instance = None
+    lock = threading.Lock()
+    log_lines = 0
     
     def __init__(self):
         self.bars = []
@@ -49,12 +51,28 @@ class ProgressBarManager:
         return cls._instance
     
     def register(self, bar):
-        self.bars.append(bar)
+        with self.lock:
+            self.bars.append(bar)
     
     def handle_interrupt(self, signum=None, frame=None):
         print("\nUser interrupted the process.")
         self.interrupted = True
         sys.exit(0)
+    
+    def log_message(self, message):
+        with self.lock:
+            num_bars = len(self.bars)
+            sys.stdout.write(f"\033[{num_bars}E")
+            sys.stdout.write(f"{message}\n")
+            self.log_lines += 1 + message.count("\n")
+            sys.stdout.write(f"\033[{self.log_lines}A")
+            sys.stdout.flush()
+    
+    def finalize_output(self):
+        with self.lock:
+            num_bars = len(self.bars)
+            sys.stdout.write(f"\033[{num_bars + self.log_lines}B")
+            sys.stdout.flush()
 
 
 ProgressBarManager.get_instance()
@@ -75,13 +93,14 @@ class ProgressBar:
             sys.exit(0)
         if not self.enabled:
             return
-        self.current = iteration
-        self.mutable_text = mutable_text
-        progress = iteration / self.total
-        block = int(BAR_LENGTH * progress)
-        bar = "█" * block + "-" * (BAR_LENGTH - block)
-        sys.stdout.write(f"\033[s\033[{self.position}A{self.title}: |{bar}| {iteration}/{self.total} {self.mutable_text}\033[u")
-        sys.stdout.flush()
+        with ProgressBarManager.lock:
+            self.current = iteration
+            self.mutable_text = mutable_text
+            progress = iteration / self.total
+            block = int(BAR_LENGTH * progress)
+            bar = "█" * block + "-" * (BAR_LENGTH - block)
+            sys.stdout.write(f"\033[s\033[{self.position}A{self.title}: |{bar}| {iteration}/{self.total} {self.mutable_text}\033[u")
+            sys.stdout.flush()
         
     
     def update_text(self, text):
@@ -107,7 +126,7 @@ class FileProgressBar(ProgressBar):
         if len(text) > self.max_len_mut:
             self.max_len_mut = len(text)
     
-    def done(self):
-        self.update(self.total, f"Done!".ljust(self.max_len_mut))
+    def done(self,text="Done!"):
+        self.update(self.total, text.ljust(self.max_len_mut))
         
     

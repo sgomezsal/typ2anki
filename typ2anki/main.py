@@ -9,7 +9,7 @@ from typ2anki.parse import parse_cards
 from typ2anki.get_data import extract_ids_and_decks
 from typ2anki.generator import generate_card_file, ensure_ankiconf_file, get_ankiconf_hash
 from typ2anki.process import process_create_deck, process_image
-from typ2anki.progressbar import FileProgressBar
+from typ2anki.progressbar import FileProgressBar, ProgressBarManager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -46,7 +46,7 @@ def main():
 
         ids, decks = extract_ids_and_decks(cards)
         
-        file_cards_key = typ_file.name
+        file_cards_key = conf.path_relative_to_root(typ_file).as_posix()
         files_cards[file_cards_key] = []
 
         for idx, card in enumerate(cards, start=1):
@@ -77,7 +77,7 @@ def main():
     # Create progress bars
     progress_bars: Dict[str, FileProgressBar] = {}
     files_count = len(files_cards)
-    longest_file_name = max(len(file_cards_key) for file_cards_key in files_cards)
+    longest_file_name = max(len(file_cards_key) for file_cards_key in files_cards) + 1
     
     if not conf.dry_run:        
         print("Processing, press 'q' to stop the process.\n")
@@ -98,13 +98,17 @@ def main():
     for file_cards_key in files_cards:
         cards = files_cards[file_cards_key]
         bar = progress_bars[file_cards_key]
-        
+        file_output_path = (Path(conf.path) / file_cards_key).resolve().parent
+
+        failed_cards = set()
         unique_decks = set()
         for deck_name, card_id, card in cards:
             unique_decks.add(deck_name)
             bar.next(f"Generating card for {deck_name}.{card_id}")
             if not cards_cache_manager.card_needs_update(deck_name, card_id): continue
-            generate_card_file(card, card_id, output_path)
+            if not generate_card_file(card, card_id, file_output_path):
+                failed_cards.add(card_id)
+                cards_cache_manager.remove_card_hash(deck_name, card_id)
 
         for deck_name in unique_decks:
             process_create_deck(deck_name)            
@@ -112,12 +116,21 @@ def main():
         bar.reset()
 
         for deck_name, card_id, card in cards:
+            if card_id in failed_cards:
+                bar.next(f"Skipping card {deck_name}.{card_id} as error occured")
+                continue
             bar.next(f"Pushing card for {deck_name}.{card_id}")
             if not cards_cache_manager.card_needs_update(deck_name, card_id): continue
-            process_image(deck_name, card_id, card, output_path)
-        bar.done()
-    
-    if not conf.dry_run: cards_cache_manager.save_cache(output_path)
+            process_image(deck_name, card_id, card, file_output_path)
+
+        if len(failed_cards) > 0:
+            bar.done(f"Done - with {len(failed_cards)} errors")
+        else:
+            bar.done("Done!")
+        
+    if not conf.dry_run:
+        ProgressBarManager.get_instance().finalize_output()
+        cards_cache_manager.save_cache(output_path)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
+import subprocess
 
 from typ2anki.api import hash_string
 from typ2anki.config import config
+from typ2anki.progressbar import ProgressBarManager
 
 def ensure_ankiconf_file(directory):
     ankiconf_path = Path(directory) / "ankiconf.typ"
@@ -27,14 +29,19 @@ def get_ankiconf_hash(directory):
         raise Exception(f"Ankiconf file not found at {ankiconf_path}")
     return hash_string(ankiconf_path.read_text())
 
-
-def generate_card_file(card, card_id, output_path):
+# Returns if the card was generated successfully
+def generate_card_file(card, card_id, output_path) -> bool:
     temp_file = Path(output_path) / "temporal.typ"
     output_file = Path(output_path) / f"typ-{card_id}-{{p}}.png"
 
     if config().dry_run:
         print(f"Generating card file for card {card_id} at {output_file}")
         return
+
+    ankiconf_relative_path = os.path.relpath(
+        Path(config().path) / "ankiconf.typ",
+        output_path,
+    )
 
     card_type = "custom-card" if "custom-card" in card else "card"
 
@@ -66,7 +73,7 @@ def generate_card_file(card, card_id, output_path):
         
 
     template = f"""
-#import "ankiconf.typ": *
+#import "{ankiconf_relative_path}": *
 #show: doc => conf(doc)
 
 #set page(
@@ -99,9 +106,19 @@ def generate_card_file(card, card_id, output_path):
     try:
         with open(temp_file, "w") as file:
             file.write(template)
-        os.system(f"typst c {temp_file} {output_file}")
+        result = subprocess.run(
+            ["typst", "--color", "always", "c", "--root", config().path, temp_file, output_file],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        if result.returncode != 0:
+            msg = f"Error generating card {card_id}"
+            if result.stdout:
+                msg += f"\n{result.stdout.decode(errors='replace')}"
+            if result.stderr:
+                msg += f"\n{result.stderr.decode(errors='replace')}"
+            ProgressBarManager.get_instance().log_message(msg)
+        return result.returncode == 0
     finally:
         if os.path.exists(temp_file):
             os.remove(temp_file)
-
-    return output_file
