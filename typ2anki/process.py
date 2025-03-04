@@ -11,8 +11,8 @@ def process_create_deck(deck_name):
 
 
 def process_image(deck_name,card_id,card,output_path):
-    front_image = Path(output_path) / f"typ-{card_id}-1.png"
-    back_image = Path(output_path) / f"typ-{card_id}-2.png"
+    front_image = Path(output_path) / f"typ-{card_id}-1.{config().output_type}"
+    back_image = Path(output_path) / f"typ-{card_id}-2.{config().output_type}"
     
     if config().dry_run:
         print(f"Pushing image for deck {deck_name} with card id {card_id}")

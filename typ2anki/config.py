@@ -23,6 +23,7 @@ class Config:
     path: str = None
     __is_zip: bool = False
     config_hash: str = None
+    output_type: str = "png"
 
     def __post_init__(self):
         self.__set_real_path()

@@ -32,7 +32,7 @@ def get_ankiconf_hash(directory):
 # Returns if the card was generated successfully
 def generate_card_file(card, card_id, output_path) -> bool:
     temp_file = Path(output_path) / "temporal.typ"
-    output_file = Path(output_path) / f"typ-{card_id}-{{p}}.png"
+    output_file = Path(output_path) / f"typ-{card_id}-{{p}}.{config().output_type}"
 
     if config().dry_run:
         print(f"Generating card file for card {card_id} at {output_file}")
