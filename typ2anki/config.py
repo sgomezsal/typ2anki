@@ -28,7 +28,7 @@ class Config:
     def __post_init__(self):
         self.__set_real_path()
         self.config_hash = hash_string(json.dumps({
-            "exclude_decks": self.exclude_decks,
+            "exclude_decks": sorted(self.exclude_decks),
             "max_card_width": self.max_card_width
         }))
 
