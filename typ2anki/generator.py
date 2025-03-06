@@ -121,6 +121,7 @@ def generate_card_file(card, card_id, output_path) -> bool:
                 msg += f"\n{result.stdout.decode(errors='replace')}"
             if result.stderr:
                 msg += f"\n{result.stderr.decode(errors='replace')}"
+            ProgressBarManager.get_instance().log_message(msg)
         return result.returncode == 0
     finally:
         if os.path.exists(temp_file):
