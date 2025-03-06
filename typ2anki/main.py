@@ -38,6 +38,8 @@ def main():
 
     # Parse all typ files
     for typ_file in typ_files_path.rglob("*.typ"):
+        if typ_file.name == "ankiconf.typ":
+            continue
         cards = []
         def capture_cards(card):
             cards.append(card)
