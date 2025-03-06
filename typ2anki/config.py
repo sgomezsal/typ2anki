@@ -7,32 +7,41 @@ from fnmatch import fnmatch
 import tempfile
 import zipfile
 import shutil
+import html
 
-from typ2anki.api import hash_string
+from typ2anki.utils import hash_string
 
 @dataclass
 class Config:
+    # User controlled options
     check_duplicates: bool
     exclude_decks: List[str]
     asked_path: str
     dry_run: bool = False
     max_card_width: str = "auto"
-
     check_checksums: bool = True
-    # The real path to the Typst documents folder, is set in post init to support zip files
+
+    # Processed options
     path: str = None
     __is_zip: bool = False
+
+    # Internal options
     config_hash: str = None
     output_type: Literal['png','svg','html'] = "png"
     typst_global_flags: List[str] = None
     typst_compile_flags: List[str] = None
+    style_image_front: str = None
+    style_image_back: str = None
 
     def __post_init__(self):
         self.__set_real_path()
         self.config_hash = hash_string(json.dumps({
+            "output_type": self.output_type,
+            "style_image_front": self.style_image_front,
+            "style_image_back": self.style_image_back,
             "exclude_decks": sorted(self.exclude_decks),
             "max_card_width": self.max_card_width
-        }))
+        },sort_keys=True))
         self.typst_global_flags = ["--color","always"]
         self.typst_compile_flags = ["--root",self.path]
 
@@ -59,6 +68,16 @@ class Config:
 
     def path_relative_to_root(self,p: Path) -> Path:
         return p.relative_to(self.path)
+
+    def get_card_side_html(self, path: str, loc: Literal['front','back']) -> str:
+        attrs = {}
+        if loc == "front" and self.style_image_front:
+            attrs["style"] = self.style_image_front
+        elif loc == "back" and self.style_image_back:
+            attrs["style"] = self.style_image_back
+        
+        attr_str = " ".join(f'{key}="{html.escape(value,quote=True)}"' for key, value in attrs.items())
+        return f'<img src="{html.escape(path,quote=True)}"{f" {attr_str}" if attr_str else ""}>'
 
     def destruct(self):
         if self.__is_zip and self.path:

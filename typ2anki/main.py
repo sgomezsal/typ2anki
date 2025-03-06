@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 import sys
 from typing import Dict, List, Set
-from typ2anki.api import hash_string
 from typ2anki.cardscache import CardsCacheManager
 from typ2anki.config import config
 from typ2anki.parse import parse_cards
@@ -10,6 +9,7 @@ from typ2anki.get_data import extract_ids_and_decks
 from typ2anki.generator import generate_card_file, ensure_ankiconf_file, get_ankiconf_hash
 from typ2anki.process import process_create_deck, process_image
 from typ2anki.progressbar import FileProgressBar, ProgressBarManager
+from typ2anki.utils import hash_string
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 

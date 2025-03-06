@@ -3,15 +3,12 @@ import requests
 from pathlib import Path
 import hashlib
 
+from typ2anki.config import config
+
 ANKI_CONNECT_URL = "http://localhost:8765"
 
 CARDS_CACHE_FILENAME = "_typ-cards-cache.json"
 
-
-def hash_string(input_string):
-    hasher = hashlib.md5()
-    hasher.update(input_string.encode('utf-8'))
-    return hasher.hexdigest()
 
 def send_request(payload):
     response = requests.post(ANKI_CONNECT_URL, json=payload).json()
@@ -79,8 +76,8 @@ def update_note(note_id, front_image, back_image, tags):
             "note": {
                 "id": note_id,
                 "fields": {
-                    "Front": f'<img src="{front_image}">',
-                    "Back": f'<img src="{back_image}">'
+                    "Front": config().get_card_side_html(front_image,"front"),
+                    "Back": config().get_card_side_html(back_image,"back")
                 },
                 "tags": tags
             }

@@ -3,9 +3,9 @@ from pathlib import Path
 import subprocess
 import sys
 
-from typ2anki.api import hash_string
 from typ2anki.config import config
 from typ2anki.progressbar import ProgressBarManager
+from typ2anki.utils import hash_string
 
 def ensure_ankiconf_file(directory):
     ankiconf_path = Path(directory) / "ankiconf.typ"

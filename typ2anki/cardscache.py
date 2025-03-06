@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from typing import Dict
-from typ2anki.api import get_cards_cache_string, hash_string, upload_media, hash_string, CARDS_CACHE_FILENAME
+from typ2anki.api import get_cards_cache_string, upload_media, CARDS_CACHE_FILENAME
 import json
 from typ2anki.config import config
+from typ2anki.utils import hash_string
 
 
 
