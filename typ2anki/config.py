@@ -2,7 +2,7 @@ import argparse
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Literal
 from fnmatch import fnmatch
 import tempfile
 import zipfile
@@ -23,7 +23,9 @@ class Config:
     path: str = None
     __is_zip: bool = False
     config_hash: str = None
-    output_type: str = "png"
+    output_type: Literal['png','svg','html'] = "png"
+    typst_global_flags: List[str] = None
+    typst_compile_flags: List[str] = None
 
     def __post_init__(self):
         self.__set_real_path()
@@ -31,6 +33,11 @@ class Config:
             "exclude_decks": sorted(self.exclude_decks),
             "max_card_width": self.max_card_width
         }))
+        self.typst_global_flags = ["--color","always"]
+        self.typst_compile_flags = ["--root",self.path]
+
+        if self.output_type == "html":
+            self.typst_compile_flags += ["--features","html"]
 
     def is_deck_excluded(self, deck_name: str) -> bool:
         return any(fnmatch(deck_name,excluded_deck) for excluded_deck in self.exclude_decks)

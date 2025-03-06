@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 from typ2anki.api import hash_string
 from typ2anki.config import config
@@ -70,18 +71,21 @@ def generate_card_file(card, card_id, output_path) -> bool:
   }})
 }}
 """
-        
-
-    template = f"""
-#import "{ankiconf_relative_path}": *
-#show: doc => conf(doc)
-
+    page_configuration = """
 #set page(
   width: auto,
   height: auto,
   margin: 3pt,
   fill: rgb("#00000000"),
-)
+)"""
+    if config().output_type == "html":
+        page_configuration = ""
+
+    template = f"""
+#import "{ankiconf_relative_path}": *
+#show: doc => conf(doc)
+
+{page_configuration}
 
 {display_with_width}
 
@@ -107,7 +111,7 @@ def generate_card_file(card, card_id, output_path) -> bool:
         with open(temp_file, "w") as file:
             file.write(template)
         result = subprocess.run(
-            ["typst", "--color", "always", "c", "--root", config().path, temp_file, output_file],
+            ["typst", *(config().typst_global_flags), "c", *(config().typst_compile_flags), str(temp_file), str(output_file)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -117,7 +121,6 @@ def generate_card_file(card, card_id, output_path) -> bool:
                 msg += f"\n{result.stdout.decode(errors='replace')}"
             if result.stderr:
                 msg += f"\n{result.stderr.decode(errors='replace')}"
-            ProgressBarManager.get_instance().log_message(msg)
         return result.returncode == 0
     finally:
         if os.path.exists(temp_file):
