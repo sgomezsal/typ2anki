@@ -2,14 +2,46 @@ import argparse
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import List, Literal
+import sys
+from typing import Any, Dict, List, Literal, Optional
 from fnmatch import fnmatch
 import tempfile
 import zipfile
 import shutil
 import html
-
+try:
+    import tomllib  # Python 3.11+
+except ImportError:
+    try:
+        import tomli as tomllib  # Python <3.11
+    except ImportError:
+        print("TOML support requires 'tomli' package. Install with: pip install tomli")
 from typ2anki.utils import hash_string
+import pprint
+
+DEFAULT_CONFIG_FILENAME = "typ2anki.toml"
+def load_toml_config(config_path: Path) -> Dict[str, Any] | None:
+    # Check if file exists
+    if not config_path.exists():
+        return None
+    try:
+        with open(config_path, "rb") as f:
+            return tomllib.load(f)
+    except Exception as e:
+        raise Exception(f"Error loading config file {config_path}: {e}")
+
+def get_real_path(asked_path) -> str:
+    path = Path(asked_path).resolve()
+    if path.is_file() and path.suffix == ".zip":
+        tmpdirname = tempfile.mkdtemp()
+        print(f"Extracting {path} to {tmpdirname}")
+        with zipfile.ZipFile(path, 'r') as zip_ref:
+            zip_ref.extractall(tmpdirname)
+        return tmpdirname
+    
+    if not path.is_dir():
+        raise ValueError(f"{path} is not a valid directory.")
+    return path
 
 @dataclass
 class Config:
@@ -34,7 +66,9 @@ class Config:
     style_image_back: str = None
 
     def __post_init__(self):
-        self.__set_real_path()
+        p = Path(self.asked_path).resolve()
+        self.__is_zip = p.is_file() and p.suffix == ".zip"
+        
         self.config_hash = hash_string(json.dumps({
             "output_type": self.output_type,
             "style_image_front": self.style_image_front,
@@ -42,6 +76,7 @@ class Config:
             "exclude_decks": sorted(self.exclude_decks),
             "max_card_width": self.max_card_width
         },sort_keys=True))
+        
         self.typst_global_flags = ["--color","always"]
         self.typst_compile_flags = ["--root",self.path]
 
@@ -86,9 +121,35 @@ class Config:
 
 
 def parse_config() -> Config:
+    # Track which arguments were explicitly set
+    explicitly_set = set()
+    
+    class TrackingAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            explicitly_set.add(self.dest)
+            setattr(namespace, self.dest, values)
+    
+    class HelpArgumentFormatter(argparse.ArgumentDefaultsHelpFormatter):
+        def _get_help_string(self, action):
+            config_key = ""
+            r = super()._get_help_string(action)
+            if not action.dest or action.dest in ["config_file","help"]: return r
+            for a in action.option_strings:
+                if a.startswith("--"):
+                    config_key = action.dest
+                    break
+
+            if config_key != "": r += f" -- config key: {config_key}"
+            return r
+
     parser = argparse.ArgumentParser(
         description="""Typ2Anki is a tool that converts Typst documents into Anki flashcards. Source: https://github.com/sgomezsal/typ2anki""",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=HelpArgumentFormatter
+    )
+    parser.add_argument(
+        "--config-file",
+        help=f"Specify the path to the config file. All paths are relative to the directory specified as the path argument of this command. If not specified, the default config file is used, which is found at '{DEFAULT_CONFIG_FILENAME}' in the path. Set to empty string to disable config file.",
+        default=DEFAULT_CONFIG_FILENAME
     )
     parser.add_argument(
         "--check-duplicates",  
@@ -103,6 +164,7 @@ def parse_config() -> Config:
     )
     parser.add_argument(
         "--max-card-width",
+        action=TrackingAction,
         type=str,
         default="auto",
         help="Specify the maximum width of the cards, in typst units. Use 'auto' to not limit the width."
@@ -132,16 +194,44 @@ def parse_config() -> Config:
     )
     
     args = parser.parse_args()
-    c = Config(
-        check_duplicates=args.check_duplicates,
-        exclude_decks=args.exclude_decks,
-        asked_path=" ".join(args.path), # Join the path in case it contains spaces
-        dry_run=args.dry_run,
-        max_card_width=args.max_card_width
-    )
+    if args.check_duplicates:
+        explicitly_set.add('check_duplicates')
     if args.no_cache:
-        c.check_checksums = False
+        explicitly_set.add('no_cache')
+    if args.dry_run:
+        explicitly_set.add('dry_run')
+    if args.exclude_decks:
+        explicitly_set.add('exclude_decks')
 
+    c = {
+        "check_duplicates": args.check_duplicates,
+        "exclude_decks": args.exclude_decks,
+        "asked_path": " ".join(args.path), # Join the path in case it contains spaces
+        "dry_run": args.dry_run,
+        "max_card_width": args.max_card_width,
+        "check_checksums": not args.no_cache
+    }
+
+    real_path = get_real_path(c["asked_path"])
+    c["path"] = real_path
+    # Load config 
+    if args.config_file != "":        
+        config_file = args.config_file
+        config_file_path = (Path(real_path) / config_file).resolve()
+        config_file_data = load_toml_config(config_file_path)
+        if config_file_data is None and config_file != DEFAULT_CONFIG_FILENAME:
+            raise FileNotFoundError(f"Config file {config_file_path} not found.")
+        print(f"Using config from {config_file_path}")
+        
+        if config_file_data is not None:
+            for k,v in config_file_data.items():
+                if k not in explicitly_set and k in c:
+                    c[k] = v
+
+    c = Config(**c)
+    if c.dry_run:
+        print("Using config:")
+        pprint.pprint(vars(c), indent=2, width=100)
     return c
 
 cached_config = None
