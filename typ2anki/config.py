@@ -82,6 +82,9 @@ class Config:
 
         if self.output_type == "html":
             self.typst_compile_flags += ["--features","html"]
+        
+        if self.max_card_width != "auto":
+            self.typst_compile_flags += ["--input",f"max_card_width={self.max_card_width}"]
 
     def is_deck_excluded(self, deck_name: str) -> bool:
         return any(fnmatch(deck_name,excluded_deck) for excluded_deck in self.exclude_decks)
