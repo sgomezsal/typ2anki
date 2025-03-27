@@ -1,3 +1,11 @@
+import re
+def is_card_empty(card: str):
+    if re.search(r"q:\s*(\[\s*\]|\"\s*\")", card,re.MULTILINE | re.DOTALL) and \
+        re.search(r"a:\s*(\[\s*\]|\"\s*\")", card,re.MULTILINE | re.DOTALL):
+        return True
+    return False
+
+    
 def parse_cards(file_path, callback):
     inside_card = False
     balance = 0

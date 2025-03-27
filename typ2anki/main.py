@@ -4,7 +4,7 @@ import sys
 from typing import Dict, List, Set
 from typ2anki.cardscache import CardsCacheManager
 from typ2anki.config import config
-from typ2anki.parse import parse_cards
+from typ2anki.parse import parse_cards, is_card_empty
 from typ2anki.get_data import extract_ids_and_decks
 from typ2anki.generator import generate_card_file, ensure_ankiconf_file, get_ankiconf_hash
 from typ2anki.process import process_create_deck, process_image
@@ -59,10 +59,17 @@ def main():
             
             if conf.is_deck_excluded(deck_name):
                 continue
+
+            if is_card_empty(card):
+                if config().dry_run:
+                    print(f"Skipping empty card {deck_name}.{card_id}")
+                continue
             
             if conf.check_duplicates:
                 if card_id in card_ids:
-                    raise Exception(f"Duplicate card id {card_id}")
+                    s = f"Duplicate card id {card_id} in {deck_name}"
+                    print(s)
+                    raise Exception(s)
                 card_ids.add(card_id)
             
             cards_cache_manager.add_current_card_hash(deck_name, card_id, hash_string(card))
