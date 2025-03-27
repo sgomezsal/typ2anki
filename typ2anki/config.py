@@ -52,6 +52,7 @@ class Config:
     dry_run: bool = False
     max_card_width: str = "auto"
     check_checksums: bool = True
+    generation_concurrency: int = 1
 
     # Processed options
     path: str = None
@@ -79,6 +80,10 @@ class Config:
         
         self.typst_global_flags = ["--color","always"]
         self.typst_compile_flags = ["--root",self.path]
+
+        if not self.check_duplicates and self.generation_concurrency > 1:
+            print("WARNING: Concurrent generation can't be enabled without duplicate checking. Disabling concurrent generation.")
+            self.generation_concurrency = 1  
 
         if self.output_type == "html":
             self.typst_compile_flags += ["--features","html"]
@@ -165,6 +170,15 @@ def parse_config() -> Config:
         default=[],
         help="Specify decks to exclude. Use multiple -e options to exclude multiple decks. Glob patterns are supported."
     )
+
+    parser.add_argument(
+        "--generation-concurrency", 
+        action=TrackingAction,
+        type=int, 
+        default=1,
+        help="Specify how many cards at a time can be generated. Needs duplicate checking enabled."
+    )
+
     parser.add_argument(
         "--max-card-width",
         action=TrackingAction,
@@ -212,7 +226,8 @@ def parse_config() -> Config:
         "asked_path": " ".join(args.path), # Join the path in case it contains spaces
         "dry_run": args.dry_run,
         "max_card_width": args.max_card_width,
-        "check_checksums": not args.no_cache
+        "check_checksums": not args.no_cache,
+        "generation_concurrency": args.generation_concurrency
     }
 
     real_path = get_real_path(c["asked_path"])

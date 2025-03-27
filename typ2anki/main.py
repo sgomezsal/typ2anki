@@ -6,10 +6,11 @@ from typ2anki.cardscache import CardsCacheManager
 from typ2anki.config import config
 from typ2anki.parse import parse_cards, is_card_empty
 from typ2anki.get_data import extract_ids_and_decks
-from typ2anki.generator import generate_card_file, ensure_ankiconf_file, get_ankiconf_hash
+from typ2anki.generator import GenerateCardProcess, generate_card_file, ensure_ankiconf_file, get_ankiconf_hash
 from typ2anki.process import process_create_deck, process_image
 from typ2anki.progressbar import FileProgressBar, ProgressBarManager
 from typ2anki.utils import hash_string
+import concurrent.futures
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -35,10 +36,13 @@ def main():
     files_cards: Dict[str, List[(str,str,str)]] = {}
 
     card_ids: Set[str] = set()
-
+    
+    empty_cards_count = 0
     # Parse all typ files
     for typ_file in typ_files_path.rglob("*.typ"):
         if typ_file.name == "ankiconf.typ":
+            continue
+        if typ_file.name.startswith("temporal-"):         
             continue
         cards = []
         def capture_cards(card):
@@ -61,8 +65,9 @@ def main():
                 continue
 
             if is_card_empty(card):
-                if config().dry_run:
+                if conf.dry_run:
                     print(f"Skipping empty card {deck_name}.{card_id}")
+                empty_cards_count += 1
                 continue
             
             if conf.check_duplicates:
@@ -111,28 +116,44 @@ def main():
 
         failed_cards = set()
         unique_decks = set()
+        tasks: List[GenerateCardProcess] = []
         for deck_name, card_id, card in cards:
             unique_decks.add(deck_name)
-            bar.next(f"Generating card for {deck_name}.{card_id}")
-            if not cards_cache_manager.card_needs_update(deck_name, card_id): continue
-            if not generate_card_file(card, card_id, file_output_path):
+            if not cards_cache_manager.card_needs_update(deck_name, card_id): 
+                bar.next(f"Generating card for {deck_name}.{card_id}")
+                continue
+            g = generate_card_file(card, card_id, file_output_path)
+            if conf.dry_run: continue
+            if g is None:
                 failed_cards.add(card_id)
                 cards_cache_manager.remove_card_hash(deck_name, card_id)
-            else:
-                compiled_cards += 1
-
-        for deck_name in unique_decks:
-            process_create_deck(deck_name)            
-
-        bar.reset()
-
-        for deck_name, card_id, card in cards:
-            if card_id in failed_cards:
-                bar.next(f"Skipping card {deck_name}.{card_id} as error occured")
                 continue
-            bar.next(f"Pushing card for {deck_name}.{card_id}")
-            if not cards_cache_manager.card_needs_update(deck_name, card_id): continue
-            process_image(deck_name, card_id, card, file_output_path)
+            g.deck_name = deck_name
+            tasks.append(g)
+        
+        for deck_name in unique_decks:
+            process_create_deck(deck_name)
+
+        def handle_task(t: GenerateCardProcess) -> tuple[bool,str,str]:
+            nonlocal compiled_cards, failed_cards, cards_cache_manager, bar, file_output_path
+            t.start()
+            r = t.collect_integrated()
+            if r:
+                compiled_cards += 1
+                process_image(t.deck_name, t.card_id, file_output_path)
+            bar.next(f"Generated card for {t.deck_name}.{t.card_id}")
+            t.clean()
+            return (r, t.deck_name, t.card_id)
+
+        if not conf.dry_run:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=conf.generation_concurrency) as executor:
+                futures = [executor.submit(handle_task, t) for t in tasks]
+
+                for future in concurrent.futures.as_completed(futures):
+                    result = future.result()
+                    if not result[0]:
+                        failed_cards.add(result[2])
+                        cards_cache_manager.remove_card_hash(result[1], result[2])
 
         if len(failed_cards) > 0:
             bar.done(f"Done - with {len(failed_cards)} errors")
@@ -142,6 +163,8 @@ def main():
     if not conf.dry_run:
         ProgressBarManager.get_instance().finalize_output()
         cards_cache_manager.save_cache(output_path)
+        if empty_cards_count > 0:
+            print(f"Skipped {empty_cards_count} empty cards.")
         print(f"Compiled a total of {compiled_cards} cards.")
 
 

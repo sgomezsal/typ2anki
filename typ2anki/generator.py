@@ -1,7 +1,9 @@
+from dataclasses import dataclass
 import os
 from pathlib import Path
 import subprocess
 import sys
+from typing import List
 
 from typ2anki.config import config
 from typ2anki.progressbar import ProgressBarManager
@@ -30,14 +32,48 @@ def get_ankiconf_hash(directory):
         raise Exception(f"Ankiconf file not found at {ankiconf_path}")
     return hash_string(ankiconf_path.read_text())
 
+@dataclass
+class GenerateCardProcess:
+    temp_file: Path
+    card_id: str
+    parameters: List[str]
+    deck_name: str = None
+    process: subprocess.Popen = None
+
+    def start(self):
+        self.process = subprocess.Popen(self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    def collect(self):
+      stdout, stderr = self.process.communicate()
+      return self.process.returncode, stdout.decode(errors='replace').strip(), stderr.decode(errors='replace').strip()
+    
+    def collect_integrated(self) -> bool:
+        returncode, stdout, stderr = self.collect()
+        if returncode != 0:
+            msg = f"Error generating card {self.card_id}"
+            if stdout:
+                msg += f"\n{stdout}"
+            if stderr:
+                msg += f"\n{stderr}"
+            ProgressBarManager.get_instance().log_message(msg)
+        return returncode == 0
+    
+    def run_integrated(self):
+        self.start()
+        return self.collect_integrated()
+    
+    def clean(self):
+        if os.path.exists(self.temp_file):
+            os.remove(self.temp_file)
+
 # Returns if the card was generated successfully
-def generate_card_file(card, card_id, output_path) -> bool:
-    temp_file = Path(output_path) / "temporal.typ"
+def generate_card_file(card, card_id, output_path) -> GenerateCardProcess | None:
+    temp_file = Path(output_path) / f"temporal-{card_id}.typ"
     output_file = Path(output_path) / f"typ-{card_id}-{{p}}.{config().output_type}"
 
     if config().dry_run:
         print(f"Generating card file for card {card_id} at {output_file}")
-        return
+        return None
 
     ankiconf_relative_path = os.path.relpath(
         Path(config().path) / "ankiconf.typ",
@@ -110,19 +146,11 @@ def generate_card_file(card, card_id, output_path) -> bool:
     try:
         with open(temp_file, "w") as file:
             file.write(template)
-        result = subprocess.run(
-            ["typst", *(config().typst_global_flags), "c", *(config().typst_compile_flags), str(temp_file), str(output_file)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        if result.returncode != 0:
-            msg = f"Error generating card {card_id}"
-            if result.stdout:
-                msg += f"\n{result.stdout.decode(errors='replace')}"
-            if result.stderr:
-                msg += f"\n{result.stderr.decode(errors='replace')}"
-            ProgressBarManager.get_instance().log_message(msg)
-        return result.returncode == 0
-    finally:
+        return GenerateCardProcess(
+            card_id=card_id,
+            parameters=["typst", *(config().typst_global_flags), "c", *(config().typst_compile_flags), str(temp_file), str(output_file)],
+            temp_file=temp_file)
+    except Exception:
         if os.path.exists(temp_file):
             os.remove(temp_file)
+        return None
