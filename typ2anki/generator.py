@@ -38,6 +38,7 @@ class GenerateCardProcess:
     card_id: str
     parameters: List[str]
     deck_name: str = None
+    real_deck_name: str = None
     process: subprocess.Popen = None
 
     def start(self):

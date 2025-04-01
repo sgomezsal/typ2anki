@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import sys
 from typing import Dict, List, Set
+from typ2anki.api import get_deck_names
 from typ2anki.cardscache import CardsCacheManager
 from typ2anki.config import config
 from typ2anki.parse import parse_cards, is_card_empty
@@ -11,6 +12,7 @@ from typ2anki.process import process_create_deck, process_image
 from typ2anki.progressbar import FileProgressBar, ProgressBarManager
 from typ2anki.utils import hash_string
 import concurrent.futures
+from functools import cache as functools_cache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -114,6 +116,15 @@ def main():
         bar = progress_bars[file_cards_key]
         file_output_path = (Path(conf.path) / file_cards_key).resolve().parent
 
+        existing_decks = get_deck_names()
+        @functools_cache
+        def get_real_deck_name(deck_name):
+            s = "::" + deck_name
+            for d in existing_decks:
+                if d == deck_name or d.endswith(s):
+                    return d
+            return deck_name
+
         failed_cards = set()
         unique_decks = set()
         tasks: List[GenerateCardProcess] = []
@@ -129,10 +140,11 @@ def main():
                 cards_cache_manager.remove_card_hash(deck_name, card_id)
                 continue
             g.deck_name = deck_name
+            g.real_deck_name = get_real_deck_name(deck_name)
             tasks.append(g)
         
         for deck_name in unique_decks:
-            process_create_deck(deck_name)
+            process_create_deck(get_real_deck_name(deck_name))
 
         def handle_task(t: GenerateCardProcess) -> tuple[bool,str,str]:
             nonlocal compiled_cards, failed_cards, cards_cache_manager, bar, file_output_path
@@ -140,7 +152,7 @@ def main():
             r = t.collect_integrated()
             if r:
                 compiled_cards += 1
-                process_image(t.deck_name, t.card_id, file_output_path)
+                process_image(t.real_deck_name, t.card_id, file_output_path)
             bar.next(f"Generated card for {t.deck_name}.{t.card_id}")
             t.clean()
             return (r, t.deck_name, t.card_id)

@@ -1,4 +1,5 @@
 import base64
+from typing import List
 import requests
 from pathlib import Path
 import hashlib
@@ -58,6 +59,14 @@ def create_deck(deck_name):
     payload = {"action": "createDeck", "version": 6, "params": {"deck": deck_name}}
     send_request(payload)
 
+def get_deck_names() -> List[str]:
+    payload = {"action": "deckNames", "version": 6}
+    try:
+        return send_request(payload)
+    except Exception as e:
+        print(f"Error getting deck names: {e}")
+        return []
+    
 def find_note_id_by_tag(tag):
     payload = {
         "action": "findNotes",

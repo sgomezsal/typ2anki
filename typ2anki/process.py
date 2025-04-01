@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from typ2anki.config import config
-from .api import upload_media, create_deck, add_or_update_card
+from .api import get_deck_names, upload_media, create_deck, add_or_update_card
 
 def process_create_deck(deck_name):
     if config().dry_run:
