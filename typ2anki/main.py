@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 import sys
-from typing import Dict, List, Set
-from typ2anki.api import get_deck_names
+from typing import Dict, List, Set, Tuple
+from typ2anki.api import check_anki_running, get_deck_names
 from typ2anki.cardscache import CardsCacheManager
 from typ2anki.config import config
 from typ2anki.parse import parse_cards, is_card_empty
@@ -10,7 +10,7 @@ from typ2anki.get_data import extract_ids_and_decks
 from typ2anki.generator import GenerateCardProcess, generate_card_file, ensure_ankiconf_file, get_ankiconf_hash
 from typ2anki.process import process_create_deck, process_image
 from typ2anki.progressbar import FileProgressBar, ProgressBarManager
-from typ2anki.utils import hash_string
+from typ2anki.utils import hash_string, print_header
 import concurrent.futures
 from functools import cache as functools_cache
 
@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 def main():
     conf = config()
+
     typ_files_path = Path(conf.path).resolve()
     if not typ_files_path.is_dir():
         logging.error(f"{typ_files_path} is not a valid directory.")
@@ -35,11 +36,12 @@ def main():
     output_path = typ_files_path
 
     # List of (deck_name, card_id, card) tuples
-    files_cards: Dict[str, List[(str,str,str)]] = {}
+    files_cards: Dict[str, List[Tuple[str,str,str]]] = {}
 
     card_ids: Set[str] = set()
     
     empty_cards_count = 0
+    parsing_errors = []
     # Parse all typ files
     for typ_file in typ_files_path.rglob("*.typ"):
         if typ_file.name == "ankiconf.typ":
@@ -74,9 +76,8 @@ def main():
             
             if conf.check_duplicates:
                 if card_id in card_ids:
-                    s = f"Duplicate card id {card_id} in {deck_name}"
-                    print(s)
-                    raise Exception(s)
+                    parsing_errors.append(f"Duplicate card id {card_id} in {deck_name}")
+                    continue
                 card_ids.add(card_id)
             
             cards_cache_manager.add_current_card_hash(deck_name, card_id, hash_string(card))
@@ -85,10 +86,30 @@ def main():
 
         if len(files_cards[file_cards_key]) == 0:
             del files_cards[file_cards_key]
+        
 
+    if len(parsing_errors):
+        print("Errors found:")
+        for error in parsing_errors:
+            print(f"  - {error}")
+        return sys.exit(1)
+    
     if len(files_cards) == 0:
         print("No cards found.")
         return
+    
+    if not conf.dry_run:
+        if not check_anki_running():
+            print_header(
+                [
+                    "Anki couldn't be detected.",
+                    "Please make sure Anki is running and the AnkiConnect add-on is installed.",
+                    "For more information about installing AnkiConnect, please see typ2anki's README"
+                ],
+            )
+            return sys.exit(1)
+            
+
 
     # Create progress bars
     progress_bars: Dict[str, FileProgressBar] = {}

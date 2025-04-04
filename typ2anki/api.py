@@ -10,12 +10,21 @@ ANKI_CONNECT_URL = "http://localhost:8765"
 
 CARDS_CACHE_FILENAME = "_typ-cards-cache.json"
 
-
 def send_request(payload):
     response = requests.post(ANKI_CONNECT_URL, json=payload).json()
     if response.get("error"):
         raise Exception(f"Anki API Error: {response['error']}")
     return response.get("result")
+
+def check_anki_running() -> bool:
+    try:
+        response = requests.get(ANKI_CONNECT_URL).json()
+    except Exception as e:
+        return False
+    if not response.get("apiVersion"):
+        return False
+    return True
+
 
 def upload_media(file_path):
     file_path = Path(file_path)
