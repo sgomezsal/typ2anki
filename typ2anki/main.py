@@ -133,6 +133,7 @@ def main():
     compiled_cards = 0
     # Generate cards and images
     for file_cards_key in files_cards:
+        compiled_at_start = compiled_cards
         cards = files_cards[file_cards_key]
         bar = progress_bars[file_cards_key]
         file_output_path = (Path(conf.path) / file_cards_key).resolve().parent
@@ -191,7 +192,11 @@ def main():
         if len(failed_cards) > 0:
             bar.done(f"Done - with {len(failed_cards)} errors")
         else:
-            bar.done("Done!")
+            d = compiled_cards - compiled_at_start
+            if d == 0:
+                bar.done("Done!")
+            else:
+                bar.done(f"Done - {d} card{"" if d == 1 else "s"} compiled")
         
     if not conf.dry_run:
         ProgressBarManager.get_instance().finalize_output()
