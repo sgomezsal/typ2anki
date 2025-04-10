@@ -48,6 +48,11 @@ def main():
             continue
         if typ_file.name.startswith("temporal-"):         
             continue
+
+        file_cards_key = conf.path_relative_to_root(typ_file).as_posix()
+        if conf.is_file_excluded(file_cards_key):
+            continue
+
         cards = []
         def capture_cards(card):
             cards.append(card)
@@ -55,8 +60,7 @@ def main():
         parse_cards(typ_file, callback=capture_cards)
 
         ids, decks = extract_ids_and_decks(cards)
-        
-        file_cards_key = conf.path_relative_to_root(typ_file).as_posix()
+    
         files_cards[file_cards_key] = []
 
         for idx, card in enumerate(cards, start=1):

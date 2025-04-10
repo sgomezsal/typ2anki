@@ -48,6 +48,7 @@ class Config:
     # User controlled options
     check_duplicates: bool
     exclude_decks: List[str]
+    exclude_files: List[str]
     asked_path: str
     dry_run: bool = False
     max_card_width: str = "auto"
@@ -95,6 +96,9 @@ class Config:
 
     def is_deck_excluded(self, deck_name: str) -> bool:
         return any(fnmatch(deck_name,excluded_deck) for excluded_deck in self.exclude_decks)
+
+    def is_file_excluded(self, file_name: str) -> bool:
+        return any(fnmatch(file_name,excluded_file) for excluded_file in self.exclude_files)
 
     def __set_real_path(self):
         path = Path(self.asked_path).resolve()
@@ -172,6 +176,13 @@ def parse_config() -> Config:
         default=[],
         help="Specify decks to exclude. Use multiple -e options to exclude multiple decks. Glob patterns are supported."
     )
+    
+    parser.add_argument(
+        "--exclude-files", 
+        action="append", 
+        default=[],
+        help="Specify files to exclude. Use multiple --exclude-files options to exclude multiple files. Glob patterns are supported. Paths are relative to the path argument."
+    )
 
     parser.add_argument(
         "--generation-concurrency", 
@@ -221,10 +232,13 @@ def parse_config() -> Config:
         explicitly_set.add('dry_run')
     if args.exclude_decks:
         explicitly_set.add('exclude_decks')
+    if args.exclude_files:
+        explicitly_set.add('exclude_files')
 
     c = {
         "check_duplicates": args.check_duplicates,
         "exclude_decks": args.exclude_decks,
+        "exclude_files": args.exclude_files,
         "asked_path": " ".join(args.path), # Join the path in case it contains spaces
         "dry_run": args.dry_run,
         "max_card_width": args.max_card_width,
