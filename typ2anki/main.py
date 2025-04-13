@@ -141,9 +141,9 @@ def main():
     cache_hits = 0
     def format_done_message(compiled, cache_hits, fails, empty):
         separator = "\033[90m/"
-        green_compiled = f"\033[32m✓{compiled}"
+        green_compiled = f"\033[{"32m" if compiled > 0 else "90m"}✓{compiled}"
         red_fails = f"\033[{"31m" if fails > 0 else "90m"}☓{fails}"
-        white_skipped = f"\033[37m↷{cache_hits}"
+        white_skipped = f"\033[{"37m" if cache_hits > 0 else "90m"}↷{cache_hits}"
         blue_empty = "" if empty == 0 else f"{separator}\033[94m∅{empty}" 
         reset = "\033[0m"
         
