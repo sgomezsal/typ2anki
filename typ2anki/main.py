@@ -41,6 +41,7 @@ def main():
     card_ids: Set[str] = set()
     
     empty_cards_count = 0
+    empty_cards_files: Dict[str,int] = {}
     parsing_errors = []
     # Parse all typ files
     for typ_file in typ_files_path.rglob("*.typ"):
@@ -76,6 +77,7 @@ def main():
                 if conf.dry_run:
                     print(f"Skipping empty card {deck_name}.{card_id}")
                 empty_cards_count += 1
+                empty_cards_files[file_cards_key] = empty_cards_files.get(file_cards_key, 0) + 1
                 continue
             
             if conf.check_duplicates:
@@ -121,7 +123,8 @@ def main():
     longest_file_name = max(len(file_cards_key) for file_cards_key in files_cards) + 1
     
     if not conf.dry_run:        
-        print("Processing, press 'q' to stop the process.\n")
+        print("Processing, press 'q' to stop the process.")
+        print(f"Legend: \033[32m✓Compiled\033[90m/\033[31m☓Errors\033[90m/\033[37m↷Cache Hits\033[90m/\033[94m∅Empty Cards\033[0m\n")
     
     for i,file_cards_key in enumerate(files_cards):
         progress_bars[file_cards_key] = FileProgressBar(len(files_cards[file_cards_key]), f"{file_cards_key.ljust(longest_file_name)}", position=files_count-i)
@@ -135,9 +138,27 @@ def main():
             progress_bars[file_cards_key].init()
     
     compiled_cards = 0
+    cache_hits = 0
+    def format_done_message(compiled, cache_hits, fails, empty):
+        separator = "\033[90m/"
+        green_compiled = f"\033[32m✓{compiled}"
+        red_fails = f"\033[{"31m" if fails > 0 else "90m"}☓{fails}"
+        white_skipped = f"\033[37m↷{cache_hits}"
+        blue_empty = "" if empty == 0 else f"{separator}\033[94m∅{empty}" 
+        reset = "\033[0m"
+        
+        # Concatenate the formatted segments
+        return (green_compiled + 
+            separator + 
+            red_fails + 
+            separator + 
+            white_skipped + 
+            blue_empty + 
+            reset)
     # Generate cards and images
     for file_cards_key in files_cards:
         compiled_at_start = compiled_cards
+        cache_hits_at_start = cache_hits
         cards = files_cards[file_cards_key]
         bar = progress_bars[file_cards_key]
         file_output_path = (Path(conf.path) / file_cards_key).resolve().parent
@@ -158,6 +179,7 @@ def main():
             unique_decks.add(deck_name)
             if not cards_cache_manager.card_needs_update(deck_name, card_id): 
                 bar.next(f"Generating card for {deck_name}.{card_id}")
+                cache_hits += 1
                 continue
             g = generate_card_file(card, card_id, file_output_path)
             if conf.dry_run: continue
@@ -193,14 +215,8 @@ def main():
                         failed_cards.add(result[2])
                         cards_cache_manager.remove_card_hash(result[1], result[2])
 
-        if len(failed_cards) > 0:
-            bar.done(f"Done - with {len(failed_cards)} errors")
-        else:
-            d = compiled_cards - compiled_at_start
-            if d == 0:
-                bar.done("Done!")
-            else:
-                bar.done(f"Done - {d} card{"" if d == 1 else "s"} compiled")
+        d = compiled_cards - compiled_at_start
+        bar.done(format_done_message(d, cache_hits - cache_hits_at_start, len(failed_cards), empty_cards_files.get(file_cards_key, 0)))
         
     if not conf.dry_run:
         ProgressBarManager.get_instance().finalize_output()

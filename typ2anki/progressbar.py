@@ -13,6 +13,7 @@ class ProgressBarManager:
     _instance = None
     lock = threading.Lock()
     log_lines = 0
+    max_bar_total = 0
     
     def __init__(self):
         self.bars = []
@@ -53,6 +54,7 @@ class ProgressBarManager:
     def register(self, bar):
         with self.lock:
             self.bars.append(bar)
+            self.max_bar_total = max(self.max_bar_total, bar.total)
     
     def handle_interrupt(self, signum=None, frame=None):
         print("\nUser interrupted the process.")
@@ -89,7 +91,8 @@ class ProgressBar:
 
 
     def update(self, iteration, mutable_text=""):
-        if ProgressBarManager.get_instance().interrupted:
+        inst = ProgressBarManager.get_instance()
+        if inst.interrupted:
             sys.exit(0)
         if not self.enabled:
             return
@@ -99,7 +102,10 @@ class ProgressBar:
             progress = iteration / self.total
             block = int(BAR_LENGTH * progress)
             bar = "█" * block + "-" * (BAR_LENGTH - block)
-            sys.stdout.write(f"\033[s\033[{self.position}A{self.title}: |{bar}| {iteration}/{self.total} {self.mutable_text}\033[u")
+            width = len(str(inst.max_bar_total))
+            padded_iteration = str(iteration).zfill(width)
+            padded_total = str(self.total).zfill(width)
+            sys.stdout.write(f"\033[s\033[{self.position}A{self.title}: |{bar}| {padded_iteration}/{padded_total} {self.mutable_text}\033[u")
             sys.stdout.flush()
         
     
@@ -129,6 +135,7 @@ class FileProgressBar(ProgressBar):
     def done(self,text="Done!"):
         if len(text) > self.max_len_mut:
             self.max_len_mut = len(text)
-        self.update(self.total, text.ljust(self.max_len_mut))
+        self.update(self.total, "".ljust(self.max_len_mut))
+        self.update(self.total,text)
         
     
