@@ -14,6 +14,7 @@ class ProgressBarManager:
     lock = threading.Lock()
     log_lines = 0
     max_bar_total = 0
+    e = 0
     
     def __init__(self):
         self.bars = []
@@ -60,21 +61,30 @@ class ProgressBarManager:
         print("\nUser interrupted the process.")
         self.interrupted = True
         sys.exit(0)
+
+    def init(self):
+        with self.lock:
+            # sys.stdout.write("\033[?1049h")  # Switch to alternate screen buffer
+            # sys.stdout.flush()
+            print("\n" * len(self.bars), end="")
+        for bar in self.bars:
+            bar.init()
     
     def log_message(self, message):
         with self.lock:
             num_bars = len(self.bars)
-            sys.stdout.write(f"\033[{num_bars}E")
-            sys.stdout.write(f"{message}\n")
-            self.log_lines += 1 + message.count("\n")
-            sys.stdout.write(f"\033[{self.log_lines}A")
+            msg_lines = message.count("\n")
+            sys.stdout.write(f"\033[s\033[{self.log_lines}E{message}")
+            sys.stdout.write(f"\033[u")
             sys.stdout.flush()
+            self.log_lines += msg_lines
     
     def finalize_output(self):
         with self.lock:
-            num_bars = len(self.bars)
-            sys.stdout.write(f"\033[{num_bars + self.log_lines}B")
+            sys.stdout.write(f"\033[{self.log_lines}B")
             sys.stdout.flush()
+            # sys.stdout.write("\033[?1049l")  # Return to normal buffer
+            # sys.stdout.flush()
 
 
 ProgressBarManager.get_instance()
@@ -87,6 +97,7 @@ class ProgressBar:
         self.current = 0
         self.mutable_text = ""
         self.enabled = True
+        self.printed = ""
         ProgressBarManager.get_instance().register(self)
 
 
@@ -105,7 +116,9 @@ class ProgressBar:
             width = len(str(inst.max_bar_total))
             padded_iteration = str(iteration).zfill(width)
             padded_total = str(self.total).zfill(width)
-            sys.stdout.write(f"\033[s\033[{self.position}A{self.title}: |{bar}| {padded_iteration}/{padded_total} {self.mutable_text}\033[u")
+            self.printed = f"{self.title}: |{bar}| {padded_iteration}/{padded_total} {self.mutable_text}"
+            sys.stdout.write(f"\033[s\033[{self.position}A{self.printed}\033[u")
+            # sys.stdout.write(f"\033[{self.position}F{self.printed}\033[{self.position}E")
             sys.stdout.flush()
         
     

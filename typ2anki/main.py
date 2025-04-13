@@ -18,6 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 def main():
     conf = config()
+    
 
     typ_files_path = Path(conf.path).resolve()
     if not typ_files_path.is_dir():
@@ -133,9 +134,7 @@ def main():
         
     
     if not conf.dry_run:
-        print("\n" * files_count, end="")
-        for file_cards_key in progress_bars:
-            progress_bars[file_cards_key].init()
+        ProgressBarManager.get_instance().init()
     
     compiled_cards = 0
     cache_hits = 0
