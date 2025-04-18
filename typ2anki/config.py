@@ -133,6 +133,9 @@ class Config:
     ) -> str:
         return f'<img src="{back_image_path}">'
 
+    def card_ppi(card_info: PassedCardDataForCompilation) -> int:
+        return -1
+
     def __set_real_path(self):
         path = Path(self.asked_path).resolve()
         if path.is_file() and path.suffix == ".zip":
@@ -150,21 +153,6 @@ class Config:
 
     def path_relative_to_root(self, p: Path) -> Path:
         return p.relative_to(self.path)
-
-    def get_card_side_html(
-        self, path: str, loc: Literal["front", "back"]
-    ) -> str:
-        attrs = {}
-        if loc == "front" and self.style_image_front:
-            attrs["style"] = self.style_image_front
-        elif loc == "back" and self.style_image_back:
-            attrs["style"] = self.style_image_back
-
-        attr_str = " ".join(
-            f'{key}="{html.escape(value,quote=True)}"'
-            for key, value in attrs.items()
-        )
-        return f'<img src="{html.escape(path,quote=True)}"{f" {attr_str}" if attr_str else ""}>'
 
     def destruct(self):
         if self.__is_zip and self.path:

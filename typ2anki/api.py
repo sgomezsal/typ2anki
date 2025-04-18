@@ -94,7 +94,13 @@ def find_note_id_by_tag(tag):
     return send_request(payload)
 
 
-def update_note(note_id, front_image, back_image, tags):
+def update_note(
+    note_id,
+    card_info: PassedCardDataForCompilation,
+    front_image,
+    back_image,
+    tags,
+):
     payload = {
         "action": "updateNoteFields",
         "version": 6,
@@ -102,8 +108,8 @@ def update_note(note_id, front_image, back_image, tags):
             "note": {
                 "id": note_id,
                 "fields": {
-                    "Front": config().get_card_side_html(front_image, "front"),
-                    "Back": config().get_card_side_html(back_image, "back"),
+                    "Front": config().template_front(card_info, front_image),
+                    "Back": config().template_back(card_info, back_image),
                 },
                 "tags": tags,
             }
@@ -121,7 +127,7 @@ def add_or_update_card(
 ):
     note_ids = find_note_id_by_tag(card_info.card_id)
     if note_ids:
-        update_note(note_ids[0], front_image, back_image, tags)
+        update_note(note_ids[0], card_info, front_image, back_image, tags)
     else:
         payload = {
             "action": "addNote",

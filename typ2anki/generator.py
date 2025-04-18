@@ -162,12 +162,18 @@ def generate_card_file(
     try:
         with open(temp_file, "w") as file:
             file.write(template)
+        ppi = config().card_ppi(card_info)
+        if ppi > 0:
+            ppi = ["--ppi", str(ppi)]
+        else:
+            ppi = []
         return GenerateCardProcess(
             card_id=card_id,
             parameters=[
                 "typst",
                 *(config().typst_global_flags),
                 "c",
+                *ppi,
                 *(config().typst_compile_flags),
                 str(temp_file),
                 str(output_file),
