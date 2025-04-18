@@ -1,5 +1,6 @@
 import re
 
+
 def extract_ids_and_decks(cards):
     ids = {}
     decks = {}

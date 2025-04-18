@@ -8,6 +8,7 @@ import tty
 BAR_LENGTH = 30
 RENDER_INTERVAL = 0.5
 
+
 # Wrapper around the progress bar to allow for multiple progress bars, and to handle user interrupts
 class ProgressBarManager:
     _instance = None
@@ -15,23 +16,25 @@ class ProgressBarManager:
     log_lines = 0
     max_bar_total = 0
     e = 0
-    
+
     def __init__(self):
         self.bars = []
         self.interrupted = False
-        
+
         def listen_for_quit():
             fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             fl = fcntl.fcntl(fd, fcntl.F_GETFL)
             try:
                 tty.setcbreak(fd)  # Instead of raw mode, use cbreak
-                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)  # Make stdin non-blocking
+                fcntl.fcntl(
+                    fd, fcntl.F_SETFL, fl | os.O_NONBLOCK
+                )  # Make stdin non-blocking
 
                 while True:
                     try:
                         key = sys.stdin.read(1)
-                        if key and key.lower() == 'q':
+                        if key and key.lower() == "q":
                             self.handle_interrupt()
                     except IOError:
                         pass  # No input, keep looping
@@ -40,23 +43,24 @@ class ProgressBarManager:
                 self.handle_interrupt()
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-                fcntl.fcntl(fd, fcntl.F_SETFL, fl)  # Restore original stdin settings
+                fcntl.fcntl(
+                    fd, fcntl.F_SETFL, fl
+                )  # Restore original stdin settings
 
-        
         input_thread = threading.Thread(target=listen_for_quit, daemon=True)
         input_thread.start()
-    
+
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
-    
+
     def register(self, bar):
         with self.lock:
             self.bars.append(bar)
             self.max_bar_total = max(self.max_bar_total, bar.total)
-    
+
     def handle_interrupt(self, signum=None, frame=None):
         print("\nUser interrupted the process.")
         self.interrupted = True
@@ -69,7 +73,7 @@ class ProgressBarManager:
             print("\n" * len(self.bars), end="")
         for bar in self.bars:
             bar.init()
-    
+
     def log_message(self, message):
         with self.lock:
             num_bars = len(self.bars)
@@ -78,7 +82,7 @@ class ProgressBarManager:
             sys.stdout.write(f"\033[u")
             sys.stdout.flush()
             self.log_lines += msg_lines
-    
+
     def finalize_output(self):
         with self.lock:
             sys.stdout.write(f"\033[{self.log_lines}B")
@@ -88,6 +92,7 @@ class ProgressBarManager:
 
 
 ProgressBarManager.get_instance()
+
 
 class ProgressBar:
     def __init__(self, total, title, position=0):
@@ -99,7 +104,6 @@ class ProgressBar:
         self.enabled = True
         self.printed = ""
         ProgressBarManager.get_instance().register(self)
-
 
     def update(self, iteration, mutable_text=""):
         inst = ProgressBarManager.get_instance()
@@ -120,35 +124,33 @@ class ProgressBar:
             sys.stdout.write(f"\033[s\033[{self.position}A{self.printed}\033[u")
             # sys.stdout.write(f"\033[{self.position}F{self.printed}\033[{self.position}E")
             sys.stdout.flush()
-        
-    
+
     def update_text(self, text):
         self.title = text
         self.update(self.current, self.mutable_text)
-    
+
     def next_step(self):
         self.update(self.current + 1, self.mutable_text)
-    
+
     def reset(self):
         self.update(0, "")
+
 
 class FileProgressBar(ProgressBar):
     def __init__(self, total, text, position=0):
         super().__init__(total, text, position)
         self.max_len_mut = 0
-    
-    def init(self):
-        self.update(0,"Waiting...")
 
-    def next(self,text):
+    def init(self):
+        self.update(0, "Waiting...")
+
+    def next(self, text):
         self.update(self.current + 1, text)
         if len(text) > self.max_len_mut:
             self.max_len_mut = len(text)
-    
-    def done(self,text="Done!"):
+
+    def done(self, text="Done!"):
         if len(text) > self.max_len_mut:
             self.max_len_mut = len(text)
         self.update(self.total, "".ljust(self.max_len_mut))
-        self.update(self.total,text)
-        
-    
+        self.update(self.total, text)

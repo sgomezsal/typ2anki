@@ -1,7 +1,9 @@
 from pathlib import Path
 
 from typ2anki.config import config
+from typ2anki.utils import PassedCardDataForCompilation
 from .api import get_deck_names, upload_media, create_deck, add_or_update_card
+
 
 def process_create_deck(deck_name):
     if config().dry_run:
@@ -10,20 +12,24 @@ def process_create_deck(deck_name):
     create_deck(deck_name)
 
 
-def process_image(deck_name,card_id,output_path):
+def process_image(
+    deck_name, card_info: PassedCardDataForCompilation, output_path
+):
+    card_id = card_info.card_id
     front_image = Path(output_path) / f"typ-{card_id}-1.{config().output_type}"
     back_image = Path(output_path) / f"typ-{card_id}-2.{config().output_type}"
-    
+
     if config().dry_run:
         print(f"Pushing image for deck {deck_name} with card id {card_id}")
-        return      
-      
+        return
 
     if front_image.exists() and back_image.exists():
         try:
             front_name = upload_media(front_image)
             back_name = upload_media(back_image)
-            add_or_update_card(deck_name, front_name, back_name, [card_id])
+            add_or_update_card(
+                deck_name, card_info, front_name, back_name, [card_id]
+            )
         finally:
             front_image.unlink(missing_ok=True)
             back_image.unlink(missing_ok=True)
