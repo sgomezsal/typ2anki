@@ -124,16 +124,16 @@ class Config:
         )
 
     def template_front(
-        card_info: PassedCardDataForCompilation, front_image_path: str
+        self, card_info: PassedCardDataForCompilation, front_image_path: str
     ) -> str:
         return f'<img src="{front_image_path}">'
 
     def template_back(
-        card_info: PassedCardDataForCompilation, back_image_path: str
+        self, card_info: PassedCardDataForCompilation, back_image_path: str
     ) -> str:
         return f'<img src="{back_image_path}">'
 
-    def card_ppi(card_info: PassedCardDataForCompilation) -> int:
+    def card_ppi(self, card_info: PassedCardDataForCompilation) -> int:
         return -1
 
     def __set_real_path(self):
