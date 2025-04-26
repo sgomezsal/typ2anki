@@ -19,7 +19,8 @@ except ImportError:
         print(
             "TOML support requires 'tomli' package. Install with: pip install tomli"
         )
-from typ2anki.utils import PassedCardDataForCompilation, hash_string
+from typ2anki.card_wrapper import CardInfo
+from typ2anki.utils import hash_string
 import pprint
 
 DEFAULT_CONFIG_FILENAME = "typ2anki.toml"
@@ -123,17 +124,13 @@ class Config:
             for excluded_file in self.exclude_files
         )
 
-    def template_front(
-        self, card_info: PassedCardDataForCompilation, front_image_path: str
-    ) -> str:
+    def template_front(self, card_info: CardInfo, front_image_path: str) -> str:
         return f'<img src="{front_image_path}">'
 
-    def template_back(
-        self, card_info: PassedCardDataForCompilation, back_image_path: str
-    ) -> str:
+    def template_back(self, card_info: CardInfo, back_image_path: str) -> str:
         return f'<img src="{back_image_path}">'
 
-    def card_ppi(self, card_info: PassedCardDataForCompilation) -> int:
+    def card_ppi(self, card_info: CardInfo) -> int:
         return -1
 
     def __set_real_path(self):

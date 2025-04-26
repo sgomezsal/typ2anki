@@ -6,6 +6,7 @@ from typ2anki.api import (
     CARDS_CACHE_FILENAME,
 )
 import json
+from typ2anki.card_wrapper import CardInfo
 from typ2anki.config import config
 from typ2anki.utils import hash_string
 
@@ -49,16 +50,18 @@ class CardsCacheManager:
             self.static_hash + card_hash
         )
 
-    def remove_card_hash(self, deck_name, card_id):
-        self.current_card_hashes.pop(f"{deck_name}_{card_id}", None)
-        self.cache.pop(f"{deck_name}_{card_id}", None)
+    def remove_card_hash(self, card: CardInfo):
+        id = f"{card.deck_name}_{card.card_id}"
+        self.current_card_hashes.pop(id, None)
+        self.cache.pop(id, None)
 
-    def card_needs_update(self, deck_name, card_id):
+    def card_needs_push(self, card: CardInfo):
         if config().check_checksums == False:
             return True
-        return self.current_card_hashes.get(
-            f"{deck_name}_{card_id}", "notfound1"
-        ) != self.cache.get(f"{deck_name}_{card_id}", "notfound2")
+        id = f"{card.deck_name}_{card.card_id}"
+        return self.current_card_hashes.get(id, "notfound1") != self.cache.get(
+            id, "notfound2"
+        )
 
     def save_cache(self, output_path):
         temp_file = output_path / CARDS_CACHE_FILENAME

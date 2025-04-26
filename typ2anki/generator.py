@@ -3,11 +3,12 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from typing import List
+from typing import List, Literal
 
+from typ2anki.card_wrapper import CardInfo, CardGenerationProcess
 from typ2anki.config import config
 from typ2anki.progressbar import ProgressBarManager
-from typ2anki.utils import PassedCardDataForCompilation, hash_string
+from typ2anki.utils import hash_string
 
 
 def ensure_ankiconf_file(directory):
@@ -35,52 +36,10 @@ def get_ankiconf_hash(directory):
     return hash_string(ankiconf_path.read_text())
 
 
-@dataclass
-class GenerateCardProcess:
-    temp_file: Path
-    card_id: str
-    parameters: List[str]
-    deck_name: str = None
-    real_deck_name: str = None
-    process: subprocess.Popen = None
-
-    def start(self):
-        self.process = subprocess.Popen(
-            self.parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-
-    def collect(self):
-        stdout, stderr = self.process.communicate()
-        return (
-            self.process.returncode,
-            stdout.decode(errors="replace").strip(),
-            stderr.decode(errors="replace").strip(),
-        )
-
-    def collect_integrated(self) -> bool:
-        returncode, stdout, stderr = self.collect()
-        if returncode != 0:
-            msg = f"Error generating card {self.card_id}"
-            if stdout:
-                msg += f"\n{stdout}"
-            if stderr:
-                msg += f"\n{stderr}"
-            ProgressBarManager.get_instance().log_message(msg)
-        return returncode == 0
-
-    def run_integrated(self):
-        self.start()
-        return self.collect_integrated()
-
-    def clean(self):
-        if os.path.exists(self.temp_file):
-            os.remove(self.temp_file)
-
-
 # Returns if the card was generated successfully
-def generate_card_file(
-    card, card_info: PassedCardDataForCompilation, output_path
-) -> GenerateCardProcess | None:
+def generate_compilation_task(
+    card_contents, card_info: CardInfo, output_path
+) -> Literal[True] | None:
     card_id = card_info.card_id
     temp_file = Path(output_path) / f"temporal-{card_id}.typ"
     output_file = (
@@ -96,7 +55,7 @@ def generate_card_file(
         output_path,
     )
 
-    card_type = "custom-card" if "custom-card" in card else "card"
+    card_type = "custom-card" if "custom-card" in card_contents else "card"
 
     max_width = config().max_card_width
     display_with_width = ""
@@ -156,7 +115,7 @@ def generate_card_file(
     ]
   }}
 }}
-{card}
+{card_contents}
 """
 
     try:
@@ -167,8 +126,9 @@ def generate_card_file(
             ppi = ["--ppi", str(ppi)]
         else:
             ppi = []
-        return GenerateCardProcess(
-            card_id=card_id,
+
+        card_info.generation_process = CardGenerationProcess(
+            card=card_info,
             parameters=[
                 "typst",
                 *(config().typst_global_flags),
@@ -180,6 +140,7 @@ def generate_card_file(
             ],
             temp_file=temp_file,
         )
+        return True
     except Exception:
         if os.path.exists(temp_file):
             os.remove(temp_file)

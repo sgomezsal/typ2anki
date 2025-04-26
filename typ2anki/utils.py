@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from enum import Enum
+
 import hashlib
 from typing import List
 
@@ -27,10 +29,3 @@ def print_header(lines: List[str], width: int = 0, border_char="="):
     for line in lines:
         print(line.center(width))
     print(border_char * width)
-
-
-@dataclass
-class PassedCardDataForCompilation:
-    card_id: str
-    deck_name: str
-    file_name: str

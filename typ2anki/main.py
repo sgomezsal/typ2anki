@@ -1,22 +1,22 @@
+import pprint
 import logging
 from pathlib import Path
 import sys
 from typing import Dict, List, Set, Tuple
 from typ2anki.api import check_anki_running, get_deck_names
+from typ2anki.card_wrapper import CardInfo, CardModificationStatus
 from typ2anki.cardscache import CardsCacheManager
 from typ2anki.config import config
 from typ2anki.parse import parse_cards, is_card_empty
 from typ2anki.get_data import extract_ids_and_decks
 from typ2anki.generator import (
-    GenerateCardProcess,
-    generate_card_file,
+    generate_compilation_task,
     ensure_ankiconf_file,
     get_ankiconf_hash,
 )
 from typ2anki.process import process_create_deck, process_image
 from typ2anki.progressbar import FileProgressBar, ProgressBarManager
 from typ2anki.utils import (
-    PassedCardDataForCompilation,
     hash_string,
     print_header,
 )
@@ -45,14 +45,26 @@ def main():
 
     output_path = typ_files_path
 
-    # List of (deck_name, card_id, card) tuples
-    files_cards: Dict[str, List[Tuple[str, str, str]]] = {}
-
-    card_ids: Set[str] = set()
+    # Dictionary, key is filename, value is list of card internal ids
+    cards_per_file: Dict[str, List[int]] = {}
+    unique_card_ids: Set[str] = set()
+    cards: List[CardInfo] = []
+    card_contents = []
 
     empty_cards_count = 0
-    empty_cards_files: Dict[str, int] = {}
+    empty_cards_filenames: Dict[str, int] = {}
     parsing_errors = []
+
+    existing_anki_decks = get_deck_names()
+
+    @functools_cache
+    def get_anki_deck_name(deck_name):
+        s = "::" + deck_name
+        for d in existing_anki_decks:
+            if d == deck_name or d.endswith(s):
+                return d
+        return deck_name
+
     # Parse all typ files
     for typ_file in typ_files_path.rglob("*.typ"):
         if typ_file.name == "ankiconf.typ":
@@ -60,22 +72,22 @@ def main():
         if typ_file.name.startswith("temporal-"):
             continue
 
-        file_cards_key = conf.path_relative_to_root(typ_file).as_posix()
-        if conf.is_file_excluded(file_cards_key):
+        cards_per_file_key = conf.path_relative_to_root(typ_file).as_posix()
+        if conf.is_file_excluded(cards_per_file_key):
             continue
 
-        cards = []
+        file_card_ids = []
 
         def capture_cards(card):
-            cards.append(card)
+            file_card_ids.append(card)
 
         parse_cards(typ_file, callback=capture_cards)
 
-        ids, decks = extract_ids_and_decks(cards)
+        ids, decks = extract_ids_and_decks(file_card_ids)
 
-        files_cards[file_cards_key] = []
+        cards_per_file[cards_per_file_key] = []
 
-        for idx, card in enumerate(cards, start=1):
+        for idx, card in enumerate(file_card_ids, start=1):
             card_id = ids.get(f"Card {idx}", "Unknown ID")
             deck_name = decks.get(f"Card {idx}", "Default")
             if card_id == "Unknown ID":
@@ -88,27 +100,43 @@ def main():
                 if conf.dry_run:
                     print(f"Skipping empty card {deck_name}.{card_id}")
                 empty_cards_count += 1
-                empty_cards_files[file_cards_key] = (
-                    empty_cards_files.get(file_cards_key, 0) + 1
+                empty_cards_filenames[cards_per_file_key] = (
+                    empty_cards_filenames.get(cards_per_file_key, 0) + 1
                 )
                 continue
 
             if conf.check_duplicates:
-                if card_id in card_ids:
+                if card_id in unique_card_ids:
                     parsing_errors.append(
                         f"Duplicate card id {card_id} in {deck_name}"
                     )
                     continue
-                card_ids.add(card_id)
+                unique_card_ids.add(card_id)
 
+            card_hash = hash_string(card)
             cards_cache_manager.add_current_card_hash(
-                deck_name, card_id, hash_string(card)
+                deck_name, card_id, card_hash
             )
 
-            files_cards[file_cards_key].append((deck_name, card_id, card))
+            internal_id = len(cards)
+            c = CardInfo(
+                internal_id=internal_id,
+                card_id=card_id,
+                deck_name=deck_name,
+                file_name=cards_per_file_key,
+                modification_status=CardModificationStatus.UNKNOWN,
+                content_hash=card_hash,
+                anki_deck_name=get_anki_deck_name(deck_name),
+            )
+            cards.append(c)
+            card_contents.append(card)
 
-        if len(files_cards[file_cards_key]) == 0:
-            del files_cards[file_cards_key]
+            c.set_modification_status(cards_cache_manager)
+
+            cards_per_file[cards_per_file_key].append(internal_id)
+
+        if len(cards_per_file[cards_per_file_key]) == 0:
+            del cards_per_file[cards_per_file_key]
 
     if len(parsing_errors):
         print("Errors found:")
@@ -116,7 +144,7 @@ def main():
             print(f"  - {error}")
         return sys.exit(1)
 
-    if len(files_cards) == 0:
+    if len(cards_per_file) == 0:
         print("No cards found.")
         return
 
@@ -133,25 +161,26 @@ def main():
 
     # Create progress bars
     progress_bars: Dict[str, FileProgressBar] = {}
-    files_count = len(files_cards)
-    longest_file_name = (
-        max(len(file_cards_key) for file_cards_key in files_cards) + 1
+    files_count = len(cards_per_file)
+    longest_file_name_length = (
+        max(len(file_cards_key) for file_cards_key in cards_per_file) + 1
     )
 
     if not conf.dry_run:
         print("Processing, press 'q' to stop the process.")
+        SEP = f"\033[90m/"
         print(
-            f"Legend: \033[32m✓Compiled\033[90m/\033[31m☓Errors\033[90m/\033[37m↷Cache Hits\033[90m/\033[94m∅Empty Cards\033[0m\n"
+            f"Legend: \033[32m+New{SEP}\033[32m↑Updated{SEP}\033[31m☓Errors{SEP}\033[37m↷Cache Hits{SEP}\033[94m∅Empty Cards\033[0m\n"
         )
 
-    for i, file_cards_key in enumerate(files_cards):
-        progress_bars[file_cards_key] = FileProgressBar(
-            len(files_cards[file_cards_key]),
-            f"{file_cards_key.ljust(longest_file_name)}",
+    for i, cards_per_file_key in enumerate(cards_per_file):
+        progress_bars[cards_per_file_key] = FileProgressBar(
+            len(cards_per_file[cards_per_file_key]),
+            f"{cards_per_file_key.ljust(longest_file_name_length)}",
             position=files_count - i,
         )
         if conf.dry_run:
-            progress_bars[file_cards_key].enabled = False
+            progress_bars[cards_per_file_key].enabled = False
 
     if not conf.dry_run:
         ProgressBarManager.get_instance().init()
@@ -159,9 +188,14 @@ def main():
     compiled_cards = 0
     cache_hits = 0
 
-    def format_done_message(compiled, cache_hits, fails, empty):
+    def format_done_message(
+        compiled_new, compiled_updated, cache_hits, fails, empty
+    ):
         separator = "\033[90m/"
-        green_compiled = f"\033[{"32m" if compiled > 0 else "90m"}✓{compiled}"
+        green_compiled = (
+            f"\033[{"32m" if compiled_new > 0 else "90m"}+{compiled_new}"
+        )
+        green_compiled2 = f"\033[{"32m" if compiled_updated > 0 else "90m"}↑{compiled_updated}"
         red_fails = f"\033[{"31m" if fails > 0 else "90m"}☓{fails}"
         white_skipped = (
             f"\033[{"37m" if cache_hits > 0 else "90m"}↷{cache_hits}"
@@ -173,6 +207,8 @@ def main():
         return (
             green_compiled
             + separator
+            + green_compiled2
+            + separator
             + red_fails
             + separator
             + white_skipped
@@ -180,102 +216,95 @@ def main():
             + reset
         )
 
-    # Generate cards and images
-    for file_cards_key in files_cards:
-        compiled_at_start = compiled_cards
-        cache_hits_at_start = cache_hits
-        cards = files_cards[file_cards_key]
-        bar = progress_bars[file_cards_key]
-        file_output_path = (Path(conf.path) / file_cards_key).resolve().parent
+    # Generate compilation tasks
+    for cards_per_file_key in cards_per_file:
+        file_card_ids = cards_per_file[cards_per_file_key]
+        bar = progress_bars[cards_per_file_key]
+        file_output_path = (
+            (Path(conf.path) / cards_per_file_key).resolve().parent
+        )
 
-        existing_decks = get_deck_names()
-
-        @functools_cache
-        def get_real_deck_name(deck_name):
-            s = "::" + deck_name
-            for d in existing_decks:
-                if d == deck_name or d.endswith(s):
-                    return d
-            return deck_name
+        stats = {
+            "compiled_new": 0,
+            "compiled_updated": 0,
+            "cache_hits": 0,
+            "failed": 0,
+            "empty": empty_cards_filenames.get(cards_per_file_key, 0),
+        }
 
         failed_cards = set()
         unique_decks = set()
-        tasks: List[GenerateCardProcess] = []
-        for deck_name, card_id, card in cards:
-            unique_decks.add(deck_name)
-            if not cards_cache_manager.card_needs_update(deck_name, card_id):
-                bar.next(f"Generating card for {deck_name}.{card_id}")
-                cache_hits += 1
+        for internal_id in file_card_ids:
+            card = cards[internal_id]
+            unique_decks.add(card.deck_name)
+            if not card.should_push:
+                bar.next(f"Generating card for {card.deck_name}.{card.card_id}")
+                stats["cache_hits"] += 1
                 continue
-            g = generate_card_file(
+            g = generate_compilation_task(
+                card_contents[internal_id],
                 card,
-                PassedCardDataForCompilation(
-                    card_id=card_id,
-                    deck_name=deck_name,
-                    file_name=file_cards_key,
-                ),
                 file_output_path,
             )
             if conf.dry_run:
                 continue
             if g is None:
-                failed_cards.add(card_id)
-                cards_cache_manager.remove_card_hash(deck_name, card_id)
+                failed_cards.add(card.card_id)
+                cards_cache_manager.remove_card_hash(card)
                 continue
-            g.deck_name = deck_name
-            g.real_deck_name = get_real_deck_name(deck_name)
-            tasks.append(g)
 
         for deck_name in unique_decks:
-            process_create_deck(get_real_deck_name(deck_name))
+            process_create_deck(get_anki_deck_name(deck_name))
 
-        def handle_task(t: GenerateCardProcess) -> tuple[bool, str, str]:
-            nonlocal \
-                compiled_cards, \
-                failed_cards, \
-                cards_cache_manager, \
-                bar, \
-                file_output_path
-            t.start()
-            r = t.collect_integrated()
+        def handle_task(card: CardInfo) -> tuple[bool, int]:
+            nonlocal stats, bar, file_output_path
+            assert (
+                card.generation_process is not None
+            ), "Card generation process is None"
+            card.generation_process.start()
+            r = card.generation_process.collect_integrated()
             if r:
-                compiled_cards += 1
                 process_image(
-                    t.real_deck_name,
-                    PassedCardDataForCompilation(
-                        card_id=t.card_id,
-                        deck_name=t.deck_name,
-                        file_name=file_cards_key,
-                    ),
+                    card,
                     file_output_path,
                 )
-            bar.next(f"Generated card for {t.deck_name}.{t.card_id}")
-            t.clean()
-            return (r, t.deck_name, t.card_id)
+                if card.old_anki_id is None:
+                    stats["compiled_new"] += 1
+                else:
+                    stats["compiled_updated"] += 1
+            bar.next(f"Generated card for {card.deck_name}.{card.card_id}")
+            card.generation_process.clean()
+            return (r, card.internal_id)
 
         if not conf.dry_run:
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=conf.generation_concurrency
             ) as executor:
-                futures = [executor.submit(handle_task, t) for t in tasks]
+                futures = []
+                for internal_id in file_card_ids:
+                    card = cards[internal_id]
+                    if not card.should_push or card.generation_process is None:
+                        continue
+                    futures.append(executor.submit(handle_task, card))
 
                 for future in concurrent.futures.as_completed(futures):
                     result = future.result()
                     if not result[0]:
-                        failed_cards.add(result[2])
-                        cards_cache_manager.remove_card_hash(
-                            result[1], result[2]
-                        )
+                        card = cards[result[1]]
+                        failed_cards.add(card.card_id)
+                        cards_cache_manager.remove_card_hash(card)
 
-        d = compiled_cards - compiled_at_start
         bar.done(
             format_done_message(
-                d,
-                cache_hits - cache_hits_at_start,
+                stats["compiled_new"],
+                stats["compiled_updated"],
+                stats["cache_hits"],
                 len(failed_cards),
-                empty_cards_files.get(file_cards_key, 0),
+                stats["empty"],
             )
         )
+        compiled_cards += stats["compiled_new"] + stats["compiled_updated"]
+        cache_hits += stats["cache_hits"]
 
     if not conf.dry_run:
         ProgressBarManager.get_instance().finalize_output()

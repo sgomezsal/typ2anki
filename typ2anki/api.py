@@ -4,8 +4,8 @@ import requests
 from pathlib import Path
 import hashlib
 
+from typ2anki.card_wrapper import CardInfo
 from typ2anki.config import config
-from typ2anki.utils import PassedCardDataForCompilation
 
 ANKI_CONNECT_URL = "http://localhost:8765"
 
@@ -96,11 +96,12 @@ def find_note_id_by_tag(tag):
 
 def update_note(
     note_id,
-    card_info: PassedCardDataForCompilation,
-    front_image,
-    back_image,
+    card: CardInfo,
     tags,
 ):
+    assert (card.output_back_anki_name is not None) and (
+        card.output_front_anki_name is not None
+    ), "Card images are not set"
     payload = {
         "action": "updateNoteFields",
         "version": 6,
@@ -108,8 +109,12 @@ def update_note(
             "note": {
                 "id": note_id,
                 "fields": {
-                    "Front": config().template_front(card_info, front_image),
-                    "Back": config().template_back(card_info, back_image),
+                    "Front": config().template_front(
+                        card, card.output_front_anki_name
+                    ),
+                    "Back": config().template_back(
+                        card, card.output_back_anki_name
+                    ),
                 },
                 "tags": tags,
             }
@@ -119,28 +124,35 @@ def update_note(
 
 
 def add_or_update_card(
-    send_to_deck_name,
-    card_info: PassedCardDataForCompilation,
-    front_image,
-    back_image,
+    card: CardInfo,
     tags,
 ):
-    note_ids = find_note_id_by_tag(card_info.card_id)
+    assert (card.output_back_anki_name is not None) and (
+        card.output_front_anki_name is not None
+    ), "Card images are not set"
+    note_ids = find_note_id_by_tag(card.card_id)
     if note_ids:
-        update_note(note_ids[0], card_info, front_image, back_image, tags)
+        card.old_anki_id = note_ids[0]
+        update_note(
+            card.old_anki_id,
+            card,
+            tags,
+        )
     else:
         payload = {
             "action": "addNote",
             "version": 6,
             "params": {
                 "note": {
-                    "deckName": send_to_deck_name,
+                    "deckName": card.anki_deck_name,
                     "modelName": "Basic",
                     "fields": {
                         "Front": config().template_front(
-                            card_info, front_image
+                            card, card.output_front_anki_name
                         ),
-                        "Back": config().template_back(card_info, back_image),
+                        "Back": config().template_back(
+                            card, card.output_back_anki_name
+                        ),
                     },
                     "tags": tags,
                 }
