@@ -1,5 +1,5 @@
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import sys
@@ -59,6 +59,7 @@ class Config:
     exclude_files: List[str]
     asked_path: str
     path: str
+
     dry_run: bool = False
     max_card_width: str = "auto"
     check_checksums: bool = True
@@ -70,8 +71,8 @@ class Config:
     # Internal options
     config_hash: str = ""
     output_type: Literal["png", "svg", "html"] = "png"
-    typst_global_flags: List[str] = []
-    typst_compile_flags: List[str] = []
+    typst_global_flags: List[str] = field(default_factory=list)
+    typst_compile_flags: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         p = Path(self.asked_path).resolve()
