@@ -14,7 +14,7 @@ try:
     import tomllib  # Python 3.11+
 except ImportError:
     try:
-        import tomli as tomllib  # Python <3.11
+        import tomli as tomllib  # type: ignore # Python <3.11
     except ImportError:
         print(
             "TOML support requires 'tomli' package. Install with: pip install tomli"
@@ -32,7 +32,7 @@ def load_toml_config(config_path: Path) -> Dict[str, Any] | None:
         return None
     try:
         with open(config_path, "rb") as f:
-            return tomllib.load(f)
+            return tomllib.load(f)  # type: ignore
     except Exception as e:
         raise Exception(f"Error loading config file {config_path}: {e}")
 
@@ -48,7 +48,7 @@ def get_real_path(asked_path) -> str:
 
     if not path.is_dir():
         raise ValueError(f"{path} is not a valid directory.")
-    return path
+    return str(path)
 
 
 @dataclass
@@ -58,33 +58,29 @@ class Config:
     exclude_decks: List[str]
     exclude_files: List[str]
     asked_path: str
+    path: str
     dry_run: bool = False
     max_card_width: str = "auto"
     check_checksums: bool = True
     generation_concurrency: int = 1
 
     # Processed options
-    path: str = None
-    __is_zip: bool = False
+    is_zip: bool = False
 
     # Internal options
-    config_hash: str = None
+    config_hash: str = ""
     output_type: Literal["png", "svg", "html"] = "png"
-    typst_global_flags: List[str] = None
-    typst_compile_flags: List[str] = None
-    style_image_front: str = None
-    style_image_back: str = None
+    typst_global_flags: List[str] = []
+    typst_compile_flags: List[str] = []
 
     def __post_init__(self):
         p = Path(self.asked_path).resolve()
-        self.__is_zip = p.is_file() and p.suffix == ".zip"
+        self.is_zip = p.is_file() and p.suffix == ".zip"
 
         self.config_hash = hash_string(
             json.dumps(
                 {
                     "output_type": self.output_type,
-                    "style_image_front": self.style_image_front,
-                    "style_image_back": self.style_image_back,
                     "exclude_decks": sorted(self.exclude_decks),
                     "max_card_width": self.max_card_width,
                 },
@@ -133,26 +129,11 @@ class Config:
     def card_ppi(self, card_info: CardInfo) -> int:
         return -1
 
-    def __set_real_path(self):
-        path = Path(self.asked_path).resolve()
-        if path.is_file() and path.suffix == ".zip":
-            self.__is_zip = True
-            tmpdirname = tempfile.mkdtemp()
-            print(f"Extracting {path} to {tmpdirname}")
-            with zipfile.ZipFile(path, "r") as zip_ref:
-                zip_ref.extractall(tmpdirname)
-            self.path = tmpdirname
-            return
-
-        if not path.is_dir():
-            raise ValueError(f"{path} is not a valid directory.")
-        self.path = self.asked_path
-
     def path_relative_to_root(self, p: Path) -> Path:
         return p.relative_to(self.path)
 
     def destruct(self):
-        if self.__is_zip and self.path:
+        if self.is_zip and self.path:
             shutil.rmtree(self.path)
             print(f"Deleted temporary zip directory {self.path}")
 
@@ -177,7 +158,7 @@ def parse_config() -> Config:
                     config_key = action.dest
                     break
 
-            if config_key != "":
+            if config_key != "" and r is not None:
                 r += f" -- config key: {config_key}"
             return r
 
