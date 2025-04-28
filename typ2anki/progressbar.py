@@ -91,9 +91,6 @@ class ProgressBarManager:
             # sys.stdout.flush()
 
 
-ProgressBarManager.get_instance()
-
-
 class ProgressBar:
     def __init__(self, total, title, position=0):
         self.total = total
