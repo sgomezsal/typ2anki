@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -29,11 +30,44 @@ def ensure_ankiconf_file(directory):
             file.write(default_content)
 
 
-def get_ankiconf_hash(directory):
-    ankiconf_path = Path(directory) / "ankiconf.typ"
+def get_all_imports(typ_content: str) -> List[str]:
+    pattern = r'^#import\s*"([^"]+)"\s*'
+
+    r: List[str] = []
+    imports = re.findall(pattern, typ_content, re.MULTILINE) or []
+    for import_path in imports:
+        if os.path.isabs(import_path):
+            import_path = os.path.relpath(import_path, "/")
+        import_path = os.path.join(config().path, import_path)
+        if os.path.exists(import_path):
+            r.append(import_path)
+            with open(import_path, "r") as file:
+                imported_content = file.read()
+            imports += get_all_imports(imported_content)
+
+    return sorted(set(r))
+
+
+def get_ankiconf_hash(directory, filename="ankiconf.typ"):
+    ankiconf_path = Path(directory) / filename
     if not ankiconf_path.exists():
         raise Exception(f"Ankiconf file not found at {ankiconf_path}")
-    return hash_string(ankiconf_path.read_text())
+    ankiconf = ankiconf_path.read_text()
+    try:
+        imports = get_all_imports(ankiconf)
+
+        if config().dry_run:
+            print(f"Reading imports in ankiconf: {imports}")
+
+        for import_path in imports:
+            assert os.path.exists(
+                import_path
+            ), f"Import path {import_path} does not exist: This shouldn't happen"
+            ankiconf += "\n" + Path(import_path).read_text()
+    except Exception as e:
+        print(f"Error reading imports in ankiconf: {e}")
+
+    return hash_string(ankiconf)
 
 
 # Returns if the card was generated successfully
