@@ -131,12 +131,15 @@ def main():
             cards.append(c)
             card_contents.append(card)
 
-            c.set_modification_status(cards_cache_manager)
-
             cards_per_file[cards_per_file_key].append(internal_id)
 
         if len(cards_per_file[cards_per_file_key]) == 0:
             del cards_per_file[cards_per_file_key]
+
+    cards_cache_manager.detect_config_change()
+
+    for card in cards:
+        card.set_modification_status(cards_cache_manager)
 
     if len(parsing_errors):
         print("Errors found:")

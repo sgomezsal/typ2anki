@@ -59,6 +59,7 @@ class Config:
     exclude_files: List[str]
     asked_path: str
     path: str
+    recompile_on_config_change: Literal["y", "n", "_"] = "_"
 
     dry_run: bool = False
     max_card_width: str = "auto"
@@ -210,6 +211,15 @@ def parse_config() -> Config:
     parser.add_argument(
         "--no-cache", action="store_true", help="Force reupload of all images"
     )
+    parser.add_argument(
+        "--recompile-on-config-change",
+        action=TrackingAction,
+        type=str,
+        choices=["_", "y", "n"],
+        default="_",
+        help="Whether to recompile cards if the config has changed. Accepts 'y' or 'n', or '_' to ask the user.",
+    )
+
     # parser.add_argument(
     #     "--anki-connect-url", "-u",
     #     default="http://localhost:8765",
@@ -252,6 +262,7 @@ def parse_config() -> Config:
         "max_card_width": args.max_card_width,
         "check_checksums": not args.no_cache,
         "generation_concurrency": args.generation_concurrency,
+        "recompile_on_config_change": args.recompile_on_config_change,
     }
 
     real_path = get_real_path(c["asked_path"])
