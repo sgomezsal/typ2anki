@@ -49,7 +49,6 @@ def main():
     cards_per_file: Dict[str, List[int]] = {}
     unique_card_ids: Set[str] = set()
     cards: List[CardInfo] = []
-    card_contents = []
 
     empty_cards_count = 0
     empty_cards_filenames: Dict[str, int] = {}
@@ -127,9 +126,9 @@ def main():
                 modification_status=CardModificationStatus.UNKNOWN,
                 content_hash=card_hash,
                 anki_deck_name=get_anki_deck_name(deck_name),
+                card_content=card,
             )
             cards.append(c)
-            card_contents.append(card)
 
             cards_per_file[cards_per_file_key].append(internal_id)
 
@@ -245,7 +244,6 @@ def main():
                 stats["cache_hits"] += 1
                 continue
             g = generate_compilation_task(
-                card_contents[internal_id],
                 card,
                 file_output_path,
             )

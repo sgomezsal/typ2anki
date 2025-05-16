@@ -72,7 +72,7 @@ def get_ankiconf_hash(directory, filename="ankiconf.typ"):
 
 # Returns if the card was generated successfully
 def generate_compilation_task(
-    card_contents, card_info: CardInfo, output_path
+    card_info: CardInfo, output_path
 ) -> Literal[True] | None:
     card_id = card_info.card_id
     temp_file = Path(output_path) / f"temporal-{card_id}.typ"
@@ -89,7 +89,9 @@ def generate_compilation_task(
         output_path,
     )
 
-    card_type = "custom-card" if "custom-card" in card_contents else "card"
+    card_type = (
+        "custom-card" if "custom-card" in card_info.card_content else "card"
+    )
 
     max_width = config().max_card_width
     display_with_width = ""
@@ -149,7 +151,7 @@ def generate_compilation_task(
     ]
   }}
 }}
-{card_contents}
+{card_info.card_content}
 """
 
     try:

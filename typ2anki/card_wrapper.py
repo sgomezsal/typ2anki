@@ -68,6 +68,7 @@ class CardInfo:
     card_id: str
     deck_name: str
     content_hash: str
+    card_content: str
     modification_status: CardModificationStatus = CardModificationStatus.UNKNOWN
     should_push: bool = True
     # the deck name used for the final push; can be in a collection, which adds a prefix
