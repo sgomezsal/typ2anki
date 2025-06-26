@@ -30,7 +30,9 @@
 2. **[Usage](#usage)**
 
    - [Basic Workflow](#basic-workflow)
+   - [Extra functionality and configuration](#extra-functionality-and-configuration)
    - [Customizing Cards](#customizing-cards)
+   - [Example repositories](#example-repositories)
 
 3. **[Troubleshooting](#troubleshooting)**
 
@@ -78,10 +80,9 @@
    typ2anki --help
    ```
 
-
 #### Nix Flake
 
-On systems with nix installed and flakes enabled, the 
+On systems with nix installed and flakes enabled, the
 python package can be executed with the following command:
 
 ```sh
@@ -206,6 +207,15 @@ If you encounter issues with the package import, you can set up the package manu
 
 ---
 
+### Extra functionality and configuration
+
+- **Command line options**: Do `typ2anki --help` to see all available options.
+  - Options include: specifying a max width for cards (to make sure they fit on phones - ex: `--max-card-width 430pt`), excluding files or decks
+- **Configuration file**: You can create a `typ2anki.toml` file in your project directory to customize the behavior of `typ2anki`. This file can include default command line options for the project, so you don't have to specify them every time you run the command.
+- **Compiling from .zip**: You can pass a `.zip` file to `typ2anki` to compile all Typst files inside it. This is useful so that if you use [typst.app](https://typst.app) you can download your project as a `.zip` and compile it with `typ2anki` without having to extract it first.
+
+---
+
 ### Customizing Cards
 
 To modify card appearance, you can define custom card logic:
@@ -226,6 +236,13 @@ To modify card appearance, you can define custom card logic:
   )
 }
 ```
+
+---
+
+### Example repositories:
+
+- See [examples](https://github.com/sgomezsal/typ2anki/tree/main/examples) for a few cards
+- Some math cards made using typ2anki: [itsvyle/typ2anki-demo](https://github.com/itsvyle/typ2anki-demo)
 
 ---
 

@@ -1,4 +1,4 @@
-#import "@preview/gentle-clues:1.1.0": *
+#import "@preview/gentle-clues:1.2.0": *
 
 #let card-container(
   title: "Anki", 

@@ -1,20 +1,31 @@
 from pathlib import Path
-from .api import upload_media, create_deck, add_or_update_card
 
-def process_images(deck_name, cards, decks, ids, output_path):
+from typ2anki.card_wrapper import CardInfo
+from typ2anki.config import config
+from .api import get_deck_names, upload_media, create_deck, add_or_update_card
+
+
+def process_create_deck(deck_name):
+    if config().dry_run:
+        print(f"Creating deck {deck_name}")
+        return
     create_deck(deck_name)
 
-    for idx, card in enumerate(cards, start=1):
-        card_id = ids.get(f"Card {idx}", "Unknown ID")
-        if decks.get(f"Card {idx}", "Default") == deck_name:
-            front_image = Path(output_path) / f"{card_id}-1.png"
-            back_image = Path(output_path) / f"{card_id}-2.png"
 
-            if front_image.exists() and back_image.exists():
-                try:
-                    front_name = upload_media(front_image)
-                    back_name = upload_media(back_image)
-                    add_or_update_card(deck_name, front_name, back_name, [card_id])
-                finally:
-                    front_image.unlink(missing_ok=True)
-                    back_image.unlink(missing_ok=True)
+def process_image(card: CardInfo, output_path):
+    card_id = card.card_id
+    front_image = Path(output_path) / f"typ-{card_id}-1.{config().output_type}"
+    back_image = Path(output_path) / f"typ-{card_id}-2.{config().output_type}"
+
+    if config().dry_run:
+        print(f"Pushing image for deck {card.deck_name} with card id {card_id}")
+        return
+
+    if front_image.exists() and back_image.exists():
+        try:
+            card.output_front_anki_name = upload_media(front_image)
+            card.output_back_anki_name = upload_media(back_image)
+            add_or_update_card(card, [card_id])
+        finally:
+            front_image.unlink(missing_ok=True)
+            back_image.unlink(missing_ok=True)
