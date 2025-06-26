@@ -4,8 +4,8 @@ import requests
 from pathlib import Path
 import hashlib
 
-from typ2anki.card_wrapper import CardInfo
-from typ2anki.config import config
+from .card_wrapper import CardInfo
+from .config import config
 
 ANKI_CONNECT_URL = "http://localhost:8765"
 

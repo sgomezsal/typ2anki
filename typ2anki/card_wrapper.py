@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 from typing import List
 
-from typ2anki.progressbar import ProgressBarManager
+from .progressbar import ProgressBarManager
 
 
 class CardModificationStatus(Enum):

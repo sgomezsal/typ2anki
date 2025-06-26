@@ -21,8 +21,8 @@ except ImportError:
         print(
             "TOML support requires 'tomli' package. Install with: pip install tomli"
         )
-from typ2anki.card_wrapper import CardInfo
-from typ2anki.utils import hash_string
+from .card_wrapper import CardInfo
+from .utils import hash_string
 import pprint
 
 DEFAULT_CONFIG_FILENAME = "typ2anki.toml"

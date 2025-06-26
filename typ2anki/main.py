@@ -3,20 +3,20 @@ import logging
 from pathlib import Path
 import sys
 from typing import Dict, List, Set, Tuple
-from typ2anki.api import check_anki_running, get_deck_names
-from typ2anki.card_wrapper import CardInfo, CardModificationStatus
-from typ2anki.cardscache import CardsCacheManager
-from typ2anki.config import config
-from typ2anki.parse import parse_cards, is_card_empty
-from typ2anki.get_data import extract_ids_and_decks
-from typ2anki.generator import (
+from .api import check_anki_running, get_deck_names
+from .card_wrapper import CardInfo, CardModificationStatus
+from .cardscache import CardsCacheManager
+from .config import config
+from .parse import parse_cards, is_card_empty
+from .get_data import extract_ids_and_decks
+from .generator import (
     generate_compilation_task,
     ensure_ankiconf_file,
     get_ankiconf_hash,
 )
-from typ2anki.process import process_create_deck, process_image
-from typ2anki.progressbar import FileProgressBar, ProgressBarManager
-from typ2anki.utils import (
+from .process import process_create_deck, process_image
+from .progressbar import FileProgressBar, ProgressBarManager
+from .utils import (
     hash_string,
     print_header,
 )

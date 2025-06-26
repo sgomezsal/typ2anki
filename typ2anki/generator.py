@@ -6,10 +6,10 @@ import subprocess
 import sys
 from typing import List, Literal
 
-from typ2anki.card_wrapper import CardInfo, CardGenerationProcess
-from typ2anki.config import config
-from typ2anki.progressbar import ProgressBarManager
-from typ2anki.utils import hash_string
+from .card_wrapper import CardInfo, CardGenerationProcess
+from .config import config
+from .progressbar import ProgressBarManager
+from .utils import hash_string
 
 
 def ensure_ankiconf_file(directory):

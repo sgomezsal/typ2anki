@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from typ2anki.card_wrapper import CardInfo
-from typ2anki.config import config
+from .card_wrapper import CardInfo
+from .config import config
 from .api import get_deck_names, upload_media, create_deck, add_or_update_card
 
 
