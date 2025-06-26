@@ -315,6 +315,10 @@ def main():
         print(f"Compiled a total of {compiled_cards} cards.")
 
 
-if __name__ == "__main__":
+def executeMain():
     main()
     config().destruct()
+
+
+if __name__ == "__main__":
+    executeMain()
