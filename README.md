@@ -257,6 +257,7 @@ To modify card appearance, you can define custom card logic:
 - **Typst file compilation errors**:
   - Check for syntax issues in your Typst file.
   - Ensure your `ankiconf.typ` contains the necessary imports and configurations.
+  - Do note that inside a given card you only have access to the scope that's in the current card. You cannot have any "global" variables in a given file. Any "global" or "shared" variables should be defined in the `ankiconf.typ` file.
 
 ---
 
