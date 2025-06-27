@@ -146,6 +146,10 @@ def show_config_dialog(config: "Config", file_path: str):
     dialog.setWindowTitle("typ2anki: Configuration Overrides")
     layout = qt.QFormLayout(dialog)  # Use QFormLayout for key-value pairs
 
+    # Add a paragraph
+    description_label = qt.QLabel("Edit the compilation configuration")
+    layout.addRow(description_label)
+
     # Add a header row for the override checkbox
     header_layout = qt.QHBoxLayout()
     header_label = qt.QLabel("Override setting")
@@ -154,6 +158,58 @@ def show_config_dialog(config: "Config", file_path: str):
     layout.addRow("", header_layout)  # Empty label for the header row
 
     widgets = {}  # Store widgets for each option
+
+    # Add a textarea
+    command_text_edit = qt.QTextEdit()
+    command_text_edit.setReadOnly(True)
+
+    def generate_command():
+        overrides = {}
+        for option_id, widget_data in widgets.items():
+            checkbox = widget_data["checkbox"]
+            widget = widget_data["widget"]
+            option_type = widget_data["type"]
+
+            if checkbox.isChecked():
+                if option_type == "str":
+                    overrides[option_id] = widget.text()
+                elif option_type == "int":
+                    overrides[option_id] = widget.value()
+                elif option_type == "store_true":
+                    overrides[option_id] = widget.isChecked()
+                elif option_type == "append":
+                    overrides[option_id] = (
+                        widget.text().split(",")
+                        if isinstance(widget, qt.QLineEdit)
+                        else widget.text()
+                    )
+                else:
+                    overrides[option_id] = widget.text()
+
+        params = []
+        for option_id, value in overrides.items():
+            cli_name = config["options_clis"].get(option_id)
+            if cli_name:
+                if isinstance(value, bool):
+                    if value:
+                        params.append(cli_name)
+                elif isinstance(value, list):
+                    for v in value:
+                        params.append(cli_name)
+                        params.append(str(v).strip())
+                else:
+                    params.append(cli_name)
+                    params.append(str(value))
+            else:
+                print(f"cli_name not found for {option_id}")
+
+        params.append(file_path)
+
+        return convert_to_user_cli_command(get_typ2anki_command(params))
+
+    def update_command_text():
+        command = generate_command()
+        command_text_edit.setText(command)
 
     for option in config["options"]:
         option_id = option["id"]
@@ -190,12 +246,20 @@ def show_config_dialog(config: "Config", file_path: str):
         # Function to enable/disable the input widget based on checkbox state
         def toggle_widget(checkbox, widget):
             widget.setEnabled(checkbox.isChecked())
+            update_command_text()
 
         override_checkbox.stateChanged.connect(
             lambda state, w=input_widget, c=override_checkbox: toggle_widget(
                 c, w
             )
         )
+
+        if isinstance(input_widget, qt.QSpinBox):
+            input_widget.valueChanged.connect(update_command_text)
+        elif isinstance(input_widget, qt.QCheckBox):
+            input_widget.stateChanged.connect(update_command_text)
+        elif isinstance(input_widget, qt.QLineEdit):
+            input_widget.textChanged.connect(update_command_text)
 
         # Add widgets to the layout with the option ID as the label
         label = f"{option_id} ({resolve_key_source(option_source)})"
@@ -211,37 +275,31 @@ def show_config_dialog(config: "Config", file_path: str):
             "type": option_type,
         }
 
+    # Add a horizontal line
+    line = qt.QLabel("-" * 150)
+    layout.addRow(line)
+
+    layout.addRow("Command to execute:", command_text_edit)
+
+    # Add a button to copy the command
+    def copy_command():
+        command = generate_command()
+        c = qt.QApplication.clipboard()
+        if c:
+            c.setText(command)
+            showInfo("Command copied to clipboard.")
+        else:
+            showInfo(
+                "Failed to copy command to clipboard; couldn't access cliboard."
+            )
+
+    copy_button = qt.QPushButton("Copy Command")
+    copy_button.clicked.connect(copy_command)
+    layout.addRow(copy_button)
+
     def on_ok():
-        overrides = {}
-        for option_id, widget_data in widgets.items():
-            checkbox = widget_data["checkbox"]
-            widget = widget_data["widget"]
-            option_type = widget_data["type"]
-
-            if checkbox.isChecked():
-                if option_type == "str":
-                    overrides[option_id] = widget.text()
-                elif option_type == "int":
-                    overrides[option_id] = widget.value()
-                elif option_type == "bool":
-                    overrides[option_id] = widget.isChecked()
-                elif option_type == "list[str]":
-                    overrides[option_id] = (
-                        widget.text().split(",")
-                        if isinstance(widget, qt.QLineEdit)
-                        else widget.text()
-                    )  # Split comma-separated string into list
-                else:
-                    overrides[option_id] = widget.text()
-
-        params = ["--dry-run"]
-        for option_id, value in overrides.items():
-            params.append(f"{config['options_clis'].get(option_id)}")
-            params.append(str(value))
-
-        params.append(file_path)
-
-        showInfo(str(convert_to_user_cli_command(get_typ2anki_command(params))))
+        update_command_text()
+        # showInfo(str(convert_to_user_cli_command(get_typ2anki_command(params))))
         dialog.close()
 
     ok_button = qt.QPushButton("OK")
@@ -249,6 +307,7 @@ def show_config_dialog(config: "Config", file_path: str):
     layout.addRow(ok_button)
 
     dialog.setLayout(layout)
+    update_command_text()  # Initial update
     dialog.show()
 
 
