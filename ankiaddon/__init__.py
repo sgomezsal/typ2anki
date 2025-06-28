@@ -116,8 +116,8 @@ def detect_terminal() -> str | None:
 
 
 def openFileChoser() -> None:
-    onChosenFile("/home/gm/Downloads/anki-sup (89).zip")
-    return
+    # onChosenFile("/home/gm/Downloads/anki-sup (89).zip")
+    # return
     dialog = qt.QDialog(mw)
     mw.objFileDialog = dialog  # type: ignore
     dialog.setWindowTitle("typ2anki: Choose File or Folder")
