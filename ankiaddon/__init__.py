@@ -1,4 +1,5 @@
 from enum import Enum
+import shutil
 import sys
 from aqt import mw
 from aqt.utils import showInfo
@@ -46,24 +47,21 @@ class Config(TypedDict):
     options_clis: dict[str, str]
 
 
-def get_typ2anki_command(params: list[str]) -> list[str]:
-    command = [sys.executable, "-m", "typ2anki_cli.main"] + params
-    return command
-
-
 def convert_to_user_cli_command(params: list[str]) -> str:
-    command = (
-        ["cd", shlex.quote(ADDON_DIR), "&&"]
-        + [shlex.quote(arg) for arg in params]
-        + ["&&", "cd", "-"]
-    )
+    command = [ADDON_DIR + "/run.sh"] + [shlex.quote(arg) for arg in params]
     return " ".join(command)
+    # command = (
+    #     ["cd", shlex.quote(ADDON_DIR), "&&"]
+    #     + [shlex.quote(arg) for arg in params]
+    #     + ["&&", "cd", "-"]
+    # )
+    command = [ADDON_DIR + "/run.sh"] + [shlex.quote(arg) for arg in params]
 
 
 def call_typ2anki_cli(
     params: list[str], showUser: bool
 ) -> None | subprocess.CompletedProcess:
-    command = get_typ2anki_command(params)
+    command = [sys.executable, "-m", "typ2anki_cli.main"] + params
     if showUser:
         subprocess.run(command, shell=True, cwd=ADDON_DIR)
     else:
@@ -71,6 +69,50 @@ def call_typ2anki_cli(
             command, capture_output=True, text=True, cwd=ADDON_DIR
         )
         return result
+
+
+def detect_terminal() -> str | None:
+    try:
+        desktop = os.environ.get("XDG_CURRENT_DESKTOP") or ""
+        if "GNOME" in desktop:
+            return (
+                subprocess.check_output(
+                    [
+                        "gsettings",
+                        "get",
+                        "org.gnome.desktop.default-applications.terminal",
+                        "exec",
+                    ]
+                )
+                .decode()
+                .strip()
+                .strip("'")
+            )
+        elif "KDE" in desktop:
+            # KDE uses system settings and might not expose this easily
+            return "konsole"
+        elif "XFCE" in desktop:
+            return (
+                subprocess.check_output(
+                    [
+                        "xfconf-query",
+                        "-c",
+                        "xfce4-session",
+                        "-p",
+                        "/sessions/Failsafe/Client0_Command",
+                    ]
+                )
+                .decode()
+                .strip()
+            )
+    except Exception:
+        return None
+    # Now, check for common terminal applications
+    terminals = [ "wezterm","alacritty", "kitty","gnome-terminal", "konsole", "xterm", "terminator", "xfce4-terminal", "lxterminal", "terminology", "tilix",  "foot", "urxvt", ]  # fmt: skip
+    for term in terminals:
+        if shutil.which(term):
+            return term
+    return None
 
 
 def openFileChoser() -> None:
@@ -163,7 +205,12 @@ def show_config_dialog(config: "Config", file_path: str):
     command_text_edit = qt.QTextEdit()
     command_text_edit.setReadOnly(True)
 
-    def generate_command():
+    def add_separator():
+        # Add a horizontal line
+        line = qt.QLabel("-" * 150)
+        layout.addRow(line)
+
+    def generate_command_params():
         overrides = {}
         for option_id, widget_data in widgets.items():
             checkbox = widget_data["checkbox"]
@@ -204,8 +251,10 @@ def show_config_dialog(config: "Config", file_path: str):
                 print(f"cli_name not found for {option_id}")
 
         params.append(file_path)
+        return params
 
-        return convert_to_user_cli_command(get_typ2anki_command(params))
+    def generate_command():
+        return convert_to_user_cli_command(generate_command_params())
 
     def update_command_text():
         command = generate_command()
@@ -275,9 +324,7 @@ def show_config_dialog(config: "Config", file_path: str):
             "type": option_type,
         }
 
-    # Add a horizontal line
-    line = qt.QLabel("-" * 150)
-    layout.addRow(line)
+    add_separator()
 
     layout.addRow("Command to execute:", command_text_edit)
 
@@ -293,14 +340,34 @@ def show_config_dialog(config: "Config", file_path: str):
                 "Failed to copy command to clipboard; couldn't access cliboard."
             )
 
-    copy_button = qt.QPushButton("Copy Command")
+    copy_button = qt.QPushButton(
+        "Copy Command (to execute it in your terminal)"
+    )
     copy_button.clicked.connect(copy_command)
     layout.addRow(copy_button)
+
+    terminal = detect_terminal()
+    if terminal:
+        terminal_button = qt.QPushButton(f"Open in {terminal}")
+
+        def terminal_button_click():
+            a = [
+                terminal,
+                "-e",
+                ADDON_DIR + "/run.sh",
+                *generate_command_params(),
+            ]
+            subprocess.Popen(a)
+
+        terminal_button.clicked.connect(terminal_button_click)
+        layout.addRow(terminal_button)
 
     def on_ok():
         update_command_text()
         # showInfo(str(convert_to_user_cli_command(get_typ2anki_command(params))))
         dialog.close()
+
+    add_separator()
 
     ok_button = qt.QPushButton("OK")
     ok_button.clicked.connect(on_ok)
