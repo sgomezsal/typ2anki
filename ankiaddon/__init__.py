@@ -310,6 +310,8 @@ def show_config_dialog(config: "Config", file_path: str):
         elif isinstance(input_widget, qt.QLineEdit):
             input_widget.textChanged.connect(update_command_text)
 
+        input_widget.setToolTip(option["help"])
+
         # Add widgets to the layout with the option ID as the label
         label = f"{option_id} ({resolve_key_source(option_source)})"
         hbox = qt.QHBoxLayout()
@@ -377,6 +379,20 @@ def show_config_dialog(config: "Config", file_path: str):
     update_command_text()  # Initial update
     dialog.show()
 
+
+# Check if the file run.sh is executable; make it executable if not
+if not os.access(ADDON_DIR + "/run.sh", os.X_OK):
+    try:
+        os.chmod(ADDON_DIR + "/run.sh", 0o755)
+    except Exception as e:
+        showInfo(f"Failed to make run.sh executable: {e}")
+
+# Check if it's linux
+if sys.platform != "linux":
+    showInfo(
+        "This addon is only supported on Linux. Please use the typ2anki cli directly."
+    )
+    sys.exit(1)
 
 action = qt.QAction("typ2anki", mw)
 qt.qconnect(action.triggered, openFileChoser)

@@ -1,3 +1,4 @@
+# The only use of `uv` in this project is to correctly install the lsp elements / .venv
 [project]
 name = "ankiaddon"
 version = "0.1.0"
