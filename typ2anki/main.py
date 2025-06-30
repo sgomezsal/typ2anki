@@ -194,13 +194,18 @@ def main():
         compiled_new, compiled_updated, cache_hits, fails, empty
     ):
         separator = "\033[90m/"
-        green_compiled = (
-            f"\033[{"32m" if compiled_new > 0 else "90m"}+{compiled_new}"
+        green_compiled = "\033[{color}+{count}".format(
+            color="32m" if compiled_new > 0 else "90m", count=compiled_new
         )
-        green_compiled2 = f"\033[{"32m" if compiled_updated > 0 else "90m"}↑{compiled_updated}"
-        red_fails = f"\033[{"31m" if fails > 0 else "90m"}☓{fails}"
-        white_skipped = (
-            f"\033[{"37m" if cache_hits > 0 else "90m"}↷{cache_hits}"
+        green_compiled2 = "\033[{color}↑{count}".format(
+            color="32m" if compiled_updated > 0 else "90m",
+            count=compiled_updated,
+        )
+        red_fails = "\033[{color}☓{count}".format(
+            color="31m" if fails > 0 else "90m", count=fails
+        )
+        white_skipped = "\033[{color}↷{count}".format(
+            color="37m" if cache_hits > 0 else "90m", count=cache_hits
         )
         blue_empty = "" if empty == 0 else f"{separator}\033[94m∅{empty}"
         reset = "\033[0m"
