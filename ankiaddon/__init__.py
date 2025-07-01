@@ -58,10 +58,9 @@ def convert_to_user_cli_command(params: list[str]) -> str:
     command = [ADDON_DIR + "/run.sh"] + [shlex.quote(arg) for arg in params]
 
 
-def call_typ2anki_cli(
-    params: list[str], showUser: bool
-) -> None | subprocess.CompletedProcess:
-    command = [sys.executable, "-m", "typ2anki_cli.main"] + params
+def call_typ2anki_cli(params: list[str], showUser: bool):
+    # command = [sys.executable, "-m", "typ2anki_cli.main"] + params
+    command = [ADDON_DIR + "/run.sh", "--back"] + params
     if showUser:
         subprocess.run(command, shell=True, cwd=ADDON_DIR)
     else:
@@ -71,42 +70,42 @@ def call_typ2anki_cli(
         return result
 
 
-def detect_terminal() -> str | None:
-    try:
-        desktop = os.environ.get("XDG_CURRENT_DESKTOP") or ""
-        if "GNOME" in desktop:
-            return (
-                subprocess.check_output(
-                    [
-                        "gsettings",
-                        "get",
-                        "org.gnome.desktop.default-applications.terminal",
-                        "exec",
-                    ]
-                )
-                .decode()
-                .strip()
-                .strip("'")
-            )
-        elif "KDE" in desktop:
-            # KDE uses system settings and might not expose this easily
-            return "konsole"
-        elif "XFCE" in desktop:
-            return (
-                subprocess.check_output(
-                    [
-                        "xfconf-query",
-                        "-c",
-                        "xfce4-session",
-                        "-p",
-                        "/sessions/Failsafe/Client0_Command",
-                    ]
-                )
-                .decode()
-                .strip()
-            )
-    except Exception:
-        return None
+def detect_terminal():
+    # try:
+    #     desktop = os.environ.get("XDG_CURRENT_DESKTOP") or ""
+    #     if "GNOME" in desktop:
+    #         return (
+    #             subprocess.check_output(
+    #                 [
+    #                     "gsettings",
+    #                     "get",
+    #                     "org.gnome.desktop.default-applications.terminal",
+    #                     "exec",
+    #                 ]
+    #             )
+    #             .decode()
+    #             .strip()
+    #             .strip("'")
+    #         )
+    #     elif "KDE" in desktop:
+    #         # KDE uses system settings and might not expose this easily
+    #         return "konsole"
+    #     elif "XFCE" in desktop:
+    #         return (
+    #             subprocess.check_output(
+    #                 [
+    #                     "xfconf-query",
+    #                     "-c",
+    #                     "xfce4-session",
+    #                     "-p",
+    #                     "/sessions/Failsafe/Client0_Command",
+    #                 ]
+    #             )
+    #             .decode()
+    #             .strip()
+    #         )
+    # except Exception:
+    #     return None
     # Now, check for common terminal applications
     terminals = [ "wezterm","alacritty", "kitty","gnome-terminal", "konsole", "xterm", "terminator", "xfce4-terminal", "lxterminal", "terminology", "tilix",  "foot", "urxvt", ]  # fmt: skip
     for term in terminals:
@@ -393,6 +392,10 @@ if sys.platform != "linux":
         "This addon is only supported on Linux. Please use the typ2anki cli directly."
     )
     sys.exit(1)
+
+# with open(ADDON_DIR + "/python_exec.txt", "w") as f:
+#     f.write(sys.executable)
+
 
 action = qt.QAction("typ2anki", mw)
 qt.qconnect(action.triggered, openFileChoser)
