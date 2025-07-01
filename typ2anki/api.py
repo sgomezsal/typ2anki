@@ -123,6 +123,44 @@ def update_note(
     send_request(payload)
 
 
+basic_model_locales = [
+    "Basic",
+    "Basique",
+    "Grundlegend",
+]  # TODO: Add more locales if needed
+basic_model_name = None
+basic_model_fields = []
+
+
+def get_basic_model_name():
+    global basic_model_name, basic_model_fields
+    if basic_model_name is not None:
+        return basic_model_name
+    payload = {
+        "action": "modelNames",
+        "version": 6,
+    }
+    models = send_request(payload)
+    for l in basic_model_locales:
+        if l in models:
+            basic_model_name = l
+            break
+    if basic_model_name is None:
+        raise Exception("Basic model not found in Anki")
+
+    payload = {
+        "version": 6,
+        "action": "modelFieldNames",
+        "params": {"modelName": basic_model_name},
+    }
+    basic_model_fields = send_request(payload)
+    if len(basic_model_fields) != 2:
+        raise Exception(
+            f"Basic model should have 2 fields, but found {len(basic_model_fields)}"
+        )
+    return basic_model_name
+
+
 def add_or_update_card(
     card: CardInfo,
     tags,
@@ -139,18 +177,19 @@ def add_or_update_card(
             tags,
         )
     else:
+        m = get_basic_model_name()
         payload = {
             "action": "addNote",
             "version": 6,
             "params": {
                 "note": {
                     "deckName": card.anki_deck_name,
-                    "modelName": "Basic",
+                    "modelName": m,
                     "fields": {
-                        "Front": config().template_front(
+                        basic_model_fields[0]: config().template_front(
                             card, card.output_front_anki_name
                         ),
-                        "Back": config().template_back(
+                        basic_model_fields[1]: config().template_back(
                             card, card.output_back_anki_name
                         ),
                     },
