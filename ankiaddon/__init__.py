@@ -332,6 +332,7 @@ def show_config_dialog(config: "Config", file_path: str):
     # Add a button to copy the command
     def copy_command():
         command = generate_command()
+        command = command.replace("run.sh","run.sh -i")
         c = qt.QApplication.clipboard()
         if c:
             c.setText(command)
