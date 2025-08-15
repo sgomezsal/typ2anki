@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import Dict, Tuple
-from typ2anki.api import (
+from .api import (
     get_cards_cache_string,
     upload_media,
     CARDS_CACHE_FILENAME,
 )
 import json
-from typ2anki.card_wrapper import CardInfo
-from typ2anki.config import config
-from typ2anki.utils import hash_string
+from .card_wrapper import CardInfo
+from .config import config
+from .utils import hash_string
 
 CACHE_HASH_PART_LENGTH = 34
 

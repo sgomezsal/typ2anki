@@ -1,0 +1,10 @@
+# The only use of `uv` in this project is to correctly install the lsp elements / .venv
+[project]
+name = "ankiaddon"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aqt[qt6]>=25.2.7",
+]

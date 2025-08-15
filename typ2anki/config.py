@@ -9,6 +9,8 @@ import tempfile
 import zipfile
 import shutil
 import html
+from enum import Enum
+
 
 try:
     import tomllib  # Python 3.11+
@@ -19,11 +21,17 @@ except ImportError:
         print(
             "TOML support requires 'tomli' package. Install with: pip install tomli"
         )
-from typ2anki.card_wrapper import CardInfo
-from typ2anki.utils import hash_string
+from .card_wrapper import CardInfo
+from .utils import hash_string
 import pprint
 
 DEFAULT_CONFIG_FILENAME = "typ2anki.toml"
+
+
+class ConfigKeySource(Enum):
+    DEFAULT = 0
+    CLI = 1
+    CONFIG_FILE = 2
 
 
 def load_toml_config(config_path: Path) -> Dict[str, Any] | None:
@@ -140,10 +148,39 @@ class Config:
             print(f"Deleted temporary zip directory {self.path}")
 
 
-def parse_config() -> Config:
-    # Track which arguments were explicitly set
-    explicitly_set = set()
+def get_action_type(action: argparse.Action) -> str:
+    """Get the type of an argparse action as a string."""
+    if isinstance(action, argparse._StoreTrueAction):
+        return "store_true"
+    elif isinstance(action, argparse._StoreFalseAction):
+        return "store_false"
+    elif isinstance(action, argparse._StoreAction):
+        return "store"
+    elif isinstance(action, argparse._AppendAction):
+        return "append"
+    elif isinstance(action, argparse._CountAction):
+        return "count"
+    elif isinstance(action, argparse._HelpAction):
+        return "help"
+    else:
+        if action.type is not None:
+            if action.type is int:
+                return "int"
+            elif action.type is float:
+                return "float"
+            elif action.type is str:
+                return "str"
+            elif action.type is bool:
+                return "bool"
+            elif action.type is list:
+                return "append"
+        pprint.pprint(action)
+        raise ValueError(
+            f"Unknown action type: {type(action)} for action {action.option_strings}"
+        )
 
+
+def get_parser(explicitly_set: set) -> argparse.ArgumentParser:
     class TrackingAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
             explicitly_set.add(self.dest)
@@ -179,8 +216,8 @@ def parse_config() -> Config:
         help="Enable duplicate checking",
     )
     parser.add_argument(
-        "-e",
         "--exclude-decks",
+        "-e",
         action="append",
         default=[],
         help="Specify decks to exclude. Use multiple -e options to exclude multiple decks. Glob patterns are supported.",
@@ -232,12 +269,30 @@ def parse_config() -> Config:
         help="Run the script without making any changes, only showing what would be done",
     )
 
+    # This argument prints out the "default" config for a given path - taking into account the config file
+    parser.add_argument(
+        "--print-config",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+
     parser.add_argument(
         "path",
         default=".",
         nargs="*",  # Have to use * to allow for spaces in the path
         help="Specify the path to the Typst documents folder or a zip file containing Typst documents",
     )
+
+    return parser
+
+
+def parse_config() -> Config:
+    # Track which arguments were explicitly set
+    explicitly_set = set()
+    parser = get_parser(explicitly_set=explicitly_set)
+
+    # pprint.pprint(parser._actions)
+    # sys.exit(1)  # Remove this line to actually run the script
 
     args = parser.parse_args()
     if args.check_duplicates:
@@ -265,6 +320,8 @@ def parse_config() -> Config:
         "recompile_on_config_change": args.recompile_on_config_change,
     }
 
+    config_key_sources: dict[str, ConfigKeySource] = {}
+
     real_path = get_real_path(c["asked_path"])
     c["path"] = real_path
     # Load config
@@ -282,6 +339,38 @@ def parse_config() -> Config:
             for k, v in config_file_data.items():
                 if k not in explicitly_set and k in c:
                     c[k] = v
+                    config_key_sources[k] = ConfigKeySource.CONFIG_FILE
+
+    for k in c.keys():
+        if k in config_key_sources:
+            continue  # Means it's from file
+        if k in explicitly_set:
+            config_key_sources[k] = ConfigKeySource.CLI
+        else:
+            config_key_sources[k] = ConfigKeySource.DEFAULT
+
+    if args.print_config:
+        # pprint.pprint(parser._actions)
+        out = {"options": []}
+
+        for action in parser._actions:
+            if action.dest in c and action.dest not in [
+                "help",
+                "config_file",
+                "path",
+            ]:
+                out["options"].append(
+                    {
+                        "id": action.dest,
+                        "source": config_key_sources[action.dest].value,
+                        "cli_name": action.option_strings[0],
+                        "help": action.help,
+                        "type": get_action_type(action),
+                        "value": c[action.dest],
+                    }
+                )
+        print(json.dumps(out, indent=2), file=sys.stderr)
+        sys.exit(0)
 
     c = Config(**c)
     if c.dry_run:

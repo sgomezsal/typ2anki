@@ -48,3 +48,9 @@ Thumbs.db
 
 # Others
 MANIFEST
+
+meta.json
+
+typ2anki.ankiaddon.temp
+*.ankiaddon
+ankiaddon/python_exec.txt

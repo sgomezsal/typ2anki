@@ -3,20 +3,20 @@ import logging
 from pathlib import Path
 import sys
 from typing import Dict, List, Set, Tuple
-from typ2anki.api import check_anki_running, get_deck_names
-from typ2anki.card_wrapper import CardInfo, CardModificationStatus
-from typ2anki.cardscache import CardsCacheManager
-from typ2anki.config import config
-from typ2anki.parse import parse_cards, is_card_empty
-from typ2anki.get_data import extract_ids_and_decks
-from typ2anki.generator import (
+from .api import check_anki_running, get_deck_names
+from .card_wrapper import CardInfo, CardModificationStatus
+from .cardscache import CardsCacheManager
+from .config import config
+from .parse import parse_cards, is_card_empty
+from .get_data import extract_ids_and_decks
+from .generator import (
     generate_compilation_task,
     ensure_ankiconf_file,
     get_ankiconf_hash,
 )
-from typ2anki.process import process_create_deck, process_image
-from typ2anki.progressbar import FileProgressBar, ProgressBarManager
-from typ2anki.utils import (
+from .process import process_create_deck, process_image
+from .progressbar import FileProgressBar, ProgressBarManager
+from .utils import (
     hash_string,
     print_header,
 )
@@ -194,13 +194,18 @@ def main():
         compiled_new, compiled_updated, cache_hits, fails, empty
     ):
         separator = "\033[90m/"
-        green_compiled = (
-            f"\033[{"32m" if compiled_new > 0 else "90m"}+{compiled_new}"
+        green_compiled = "\033[{color}+{count}".format(
+            color="32m" if compiled_new > 0 else "90m", count=compiled_new
         )
-        green_compiled2 = f"\033[{"32m" if compiled_updated > 0 else "90m"}↑{compiled_updated}"
-        red_fails = f"\033[{"31m" if fails > 0 else "90m"}☓{fails}"
-        white_skipped = (
-            f"\033[{"37m" if cache_hits > 0 else "90m"}↷{cache_hits}"
+        green_compiled2 = "\033[{color}↑{count}".format(
+            color="32m" if compiled_updated > 0 else "90m",
+            count=compiled_updated,
+        )
+        red_fails = "\033[{color}☓{count}".format(
+            color="31m" if fails > 0 else "90m", count=fails
+        )
+        white_skipped = "\033[{color}↷{count}".format(
+            color="37m" if cache_hits > 0 else "90m", count=cache_hits
         )
         blue_empty = "" if empty == 0 else f"{separator}\033[94m∅{empty}"
         reset = "\033[0m"
@@ -315,6 +320,10 @@ def main():
         print(f"Compiled a total of {compiled_cards} cards.")
 
 
-if __name__ == "__main__":
+def executeMain():
     main()
     config().destruct()
+
+
+if __name__ == "__main__":
+    executeMain()
