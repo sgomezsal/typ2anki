@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 import sys
 from typing import Dict, List, Set, Tuple
-from .api import check_anki_running, get_deck_names
+from .api import check_anki_running, get_basic_model_name, get_deck_names
 from .card_wrapper import CardInfo, CardModificationStatus
 from .cardscache import CardsCacheManager
 from .config import config
@@ -160,6 +160,7 @@ def main():
                 ],
             )
             return sys.exit(1)
+        get_basic_model_name()
 
     # Create progress bars
     progress_bars: Dict[str, FileProgressBar] = {}
