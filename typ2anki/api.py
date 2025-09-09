@@ -140,24 +140,26 @@ def get_basic_model_name():
         "action": "modelNames",
         "version": 6,
     }
+    temp = None
     models = send_request(payload)
     for l in basic_model_locales:
         if l in models:
-            basic_model_name = l
+            temp = l
             break
-    if basic_model_name is None:
+    if temp is None:
         raise Exception("Basic model not found in Anki")
 
     payload = {
         "version": 6,
         "action": "modelFieldNames",
-        "params": {"modelName": basic_model_name},
+        "params": {"modelName": temp},
     }
     basic_model_fields = send_request(payload)
     if len(basic_model_fields) != 2:
         raise Exception(
             f"Basic model should have 2 fields, but found {len(basic_model_fields)}"
         )
+    basic_model_name = temp
     return basic_model_name
 
 
