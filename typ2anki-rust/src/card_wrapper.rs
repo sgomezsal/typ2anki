@@ -1,7 +1,7 @@
 use regex::Regex;
-use std::sync::LazyLock;
+use std::{path::PathBuf, sync::LazyLock};
 
-use crate::utils;
+use crate::{config, utils};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CardModificationStatus {
@@ -12,26 +12,55 @@ pub enum CardModificationStatus {
 }
 
 #[derive(Debug, Clone)]
+pub struct TypFileStats {
+    pub filepath: PathBuf,
+    pub total_cards: usize,
+    pub new_cards: usize,
+    pub updated_cards: usize,
+    pub unchanged_cards: usize,
+    pub error_cards: usize,
+    pub empty_cards: usize,
+}
+
+impl TypFileStats {
+    pub fn new(filepath: PathBuf) -> Self {
+        Self {
+            filepath,
+            total_cards: 0,
+            new_cards: 0,
+            updated_cards: 0,
+            unchanged_cards: 0,
+            error_cards: 0,
+            empty_cards: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct CardInfo {
-    internal_id: i64,
+    pub internal_id: i64,
     // The file name from which the card is compiled
-    file_name: String,
+    pub filepath: PathBuf,
     // The user defined unique card_id
-    card_id: String,
+    pub card_id: String,
     // The user defined deck_name
-    deck_name: String,
+    pub deck_name: String,
     // The deck name in anki, with leading folder
-    anki_deck_name: Option<String>,
+    pub anki_deck_name: Option<String>,
     // The card's content
-    content: String,
+    pub content: String,
     // A hash of the card's content
-    content_hash: String,
+    pub content_hash: String,
     // The card's noticed modification status
-    modification_status: CardModificationStatus,
+    pub modification_status: CardModificationStatus,
 }
 
 impl CardInfo {
-    pub fn from_string(internal_id: i64, card_str: &str, file_name: &str) -> Result<Self, String> {
+    pub fn from_string(
+        internal_id: i64,
+        card_str: &str,
+        filepath: PathBuf,
+    ) -> Result<Self, String> {
         static ID_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"id:\s*"([^"]+)""#).unwrap());
         static DECK_RE: LazyLock<Regex> =
             LazyLock::new(|| Regex::new(r#"target-deck:\s*"([^"]+)""#).unwrap());
@@ -54,7 +83,7 @@ impl CardInfo {
 
         Ok(Self {
             internal_id,
-            file_name: file_name.to_string(),
+            filepath: filepath,
             card_id,
             deck_name: target_deck,
             anki_deck_name: None,

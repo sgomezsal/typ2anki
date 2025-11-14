@@ -11,7 +11,9 @@ use toml::Value as TomlValue;
 use html_escape::encode_double_quoted_attribute;
 
 use crate::card_wrapper::CardInfo;
+use crate::output::OutputManager;
 use crate::utils;
+use std::sync::{Arc, RwLock};
 
 pub const DEFAULT_CONFIG_FILENAME: &str = "typ2anki.toml";
 
@@ -91,8 +93,8 @@ pub struct Config {
     pub exclude_decks_string: Vec<String>,
     pub exclude_files: Vec<Pattern>,
     pub asked_path: String,
-    pub path: String,
-    pub recompile_on_config_change: String,
+    pub path: PathBuf,
+    pub recompile_on_config_change: Arc<RwLock<Option<bool>>>,
 
     // Processed options / defaults
     pub dry_run: bool,
@@ -286,8 +288,16 @@ pub fn parse_config() -> Config {
             .collect(),
         exclude_decks_string: exclude_decks,
         asked_path: asked_path.clone(),
-        path,
-        recompile_on_config_change,
+        path: PathBuf::from(path),
+        recompile_on_config_change: Arc::new(
+            match recompile_on_config_change.to_ascii_lowercase().as_str() {
+                "y" | "yes" => Some(true),
+                "n" | "no" => Some(false),
+                "_" => None,
+                _ => None,
+            }
+            .into(),
+        ),
         dry_run,
         max_card_width,
         check_checksums,
@@ -299,10 +309,6 @@ pub fn parse_config() -> Config {
         typst_compile_flags,
     };
     cfg.compute_hash();
-
-    if cfg.dry_run {
-        eprintln!("Using config: {:#?}", cfg);
-    }
 
     cfg
 }

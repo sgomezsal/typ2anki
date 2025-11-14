@@ -1,6 +1,48 @@
+use std::sync::LazyLock;
+
 use regex::Regex;
 
-use crate::card_wrapper::CardInfo;
+use crate::{config, utils};
+
+const DEFAULT_ANKICONF: &'static str = "#let conf(
+  doc,
+) = {
+  doc
+}";
+
+pub fn check_ankiconf_exists() {
+    let cfg = config::get();
+    let ankiconf_path = cfg.path.join("ankiconf.typ");
+    if !ankiconf_path.exists() {
+        std::fs::write(&ankiconf_path, DEFAULT_ANKICONF).expect("Failed to create ankiconf.typ");
+    }
+}
+
+pub fn is_card_empty(card_str: &str) -> bool {
+    static Q_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"q:\s*(\[\s*\]|"\s*")"#).unwrap());
+    static A_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"a:\s*(\[\s*\]|"\s*")"#).unwrap());
+
+    Q_RE.is_match(card_str) && A_RE.is_match(card_str)
+}
+
+pub fn get_ankiconf_hash() -> String {
+    let cfg = config::get();
+    let ankiconf_path = cfg.path.join("ankiconf.typ");
+    if !ankiconf_path.exists() {
+        return String::new();
+    }
+    let mut content = std::fs::read_to_string(ankiconf_path).unwrap_or(String::new());
+    let imports = utils::get_all_typst_imports(content.as_str());
+
+    for import in imports {
+        if let Ok(import_content) = std::fs::read_to_string(&import) {
+            content.push_str("\n");
+            content.push_str(&import_content);
+        }
+    }
+
+    utils::hash_string(&content)
+}
 
 pub fn parse_cards_string(content: &str) -> Vec<String> {
     let mut results: Vec<String> = Vec::new();
