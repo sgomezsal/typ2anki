@@ -1,0 +1,314 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use clap::Parser;
+use glob::Pattern;
+use once_cell::sync::OnceCell;
+use serde_json::json;
+use toml::Value as TomlValue;
+
+use html_escape::encode_double_quoted_attribute;
+
+use crate::card_wrapper::CardInfo;
+use crate::utils;
+
+pub const DEFAULT_CONFIG_FILENAME: &str = "typ2anki.toml";
+
+#[derive(Parser, Debug)]
+#[command(about = "Typ2Anki config parser")]
+struct Cli {
+    /// Specify the path to the config file. Set to empty string to disable config file.
+    #[arg(long = "config-file", default_value = DEFAULT_CONFIG_FILENAME)]
+    config_file: String,
+
+    /// Enable duplicate checking
+    #[arg(long = "check-duplicates")]
+    check_duplicates: bool,
+
+    /// Specify decks to exclude. Use multiple -e options. Glob patterns supported.
+    #[arg(short = 'e', long = "exclude-decks", action = clap::ArgAction::Append)]
+    exclude_decks: Vec<String>,
+
+    /// Specify files to exclude. Use multiple --exclude-files options. Glob patterns supported.
+    #[arg(long = "exclude-files", action = clap::ArgAction::Append)]
+    exclude_files: Vec<String>,
+
+    /// Specify how many cards at a time can be generated. Needs duplicate checking enabled.
+    #[arg(long = "generation-concurrency", default_value_t = 1)]
+    generation_concurrency: usize,
+
+    /// Max card width, 'auto' or a value
+    #[arg(long = "max-card-width", default_value = "auto")]
+    max_card_width: String,
+
+    /// Force reupload of all images
+    #[arg(long = "no-cache")]
+    no_cache: bool,
+
+    /// Whether to recompile cards if the config has changed. Accepts 'y' or 'n', or '_' to ask.
+    #[arg(long = "recompile-on-config-change", default_value = "_")]
+    recompile_on_config_change: String,
+
+    /// Run without making changes
+    #[arg(long = "dry-run")]
+    dry_run: bool,
+
+    /// Hidden: print config
+    #[arg(long = "print-config", hide = true)]
+    print_config: bool,
+
+    /// Path to Typst documents folder or zip (positional, allow spaces)
+    #[arg(value_parser, num_args = 0..)]
+    path: Vec<String>,
+}
+
+fn load_toml_config(path: &Path) -> Option<TomlValue> {
+    if !path.exists() {
+        return None;
+    }
+    match fs::read_to_string(path) {
+        Ok(s) => match s.parse::<TomlValue>() {
+            Ok(v) => Some(v),
+            Err(e) => panic!("Error parsing TOML {}: {}", path.display(), e),
+        },
+        Err(e) => panic!("Error reading config file {}: {}", path.display(), e),
+    }
+}
+
+fn get_real_path_simple(p: &str) -> String {
+    match fs::canonicalize(p) {
+        Ok(p) => p.to_string_lossy().to_string(),
+        Err(_) => p.to_string(),
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Config {
+    // User controlled options
+    pub check_duplicates: bool,
+    pub exclude_decks: Vec<Pattern>,
+    pub exclude_decks_string: Vec<String>,
+    pub exclude_files: Vec<Pattern>,
+    pub asked_path: String,
+    pub path: String,
+    pub recompile_on_config_change: String,
+
+    // Processed options / defaults
+    pub dry_run: bool,
+    pub max_card_width: String,
+    pub check_checksums: bool,
+    pub generation_concurrency: usize,
+
+    // Internal options
+    pub is_zip: bool,
+    pub config_hash: Option<String>,
+    pub output_type: String,
+    pub typst_global_flags: Vec<String>,
+    pub typst_compile_flags: Vec<String>,
+}
+
+impl Config {
+    pub fn is_deck_excluded(&self, deck_name: &str) -> bool {
+        self.exclude_decks.iter().any(|p| p.matches(deck_name))
+    }
+
+    pub fn is_file_excluded(&self, file_name: &str) -> bool {
+        self.exclude_files.iter().any(|p| p.matches(file_name))
+    }
+
+    pub fn template_front(&self, _card_info: &CardInfo, front_image_path: &str) -> String {
+        format!(
+            r#"<img src="{}">"#,
+            encode_double_quoted_attribute(front_image_path)
+        )
+    }
+
+    pub fn template_back(&self, _card_info: &CardInfo, back_image_path: &str) -> String {
+        format!(
+            r#"<img src="{}">"#,
+            encode_double_quoted_attribute(back_image_path)
+        )
+    }
+
+    pub fn card_ppi(&self, _card_info: &CardInfo) -> i32 {
+        -1
+    }
+
+    pub fn path_relative_to_root(&self, p: &Path) -> PathBuf {
+        PathBuf::from(p)
+            .strip_prefix(&self.path)
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|_| PathBuf::from(p))
+    }
+
+    pub fn destruct(&self) {
+        // No unzip/tempdir handling here per request.
+        // TODO: if you later add unzip support, delete temporary directory here.
+        if self.is_zip {
+            todo!("Zip file support not implemented yet");
+        }
+    }
+
+    pub fn compute_hash(&mut self) {
+        let relevant_config = json!({
+            "output_type": self.output_type,
+            "max_card_width": self.max_card_width,
+            "exclude_decks": self.exclude_decks_string.clone().sort(),
+        });
+        let relevant_config = utils::json_sorted_keys(&relevant_config);
+        let s = serde_json::to_string(&relevant_config).unwrap();
+        self.config_hash = Some(utils::hash_string(&s));
+    }
+}
+
+pub fn parse_config() -> Config {
+    let cli = Cli::parse();
+
+    let asked_path = if cli.path.is_empty() {
+        ".".to_string()
+    } else {
+        cli.path.join(" ")
+    };
+
+    let mut check_duplicates = cli.check_duplicates;
+    let mut exclude_decks = cli.exclude_decks.clone();
+    let mut exclude_files = cli.exclude_files.clone();
+    let mut dry_run = cli.dry_run;
+    let mut max_card_width = cli.max_card_width.clone();
+    let mut check_checksums = !cli.no_cache;
+    let mut generation_concurrency = cli.generation_concurrency;
+    let mut recompile_on_config_change = cli.recompile_on_config_change.clone();
+
+    let mut path = get_real_path_simple(&asked_path);
+    let is_zip = if path.to_lowercase().ends_with(".zip") {
+        true
+    } else {
+        false
+    };
+
+    if is_zip {
+        todo!("Zip file support not implemented yet");
+    }
+
+    if !cli.config_file.is_empty() {
+        let config_file_path = Path::new(&path).join(&cli.config_file);
+        if let Some(table) = load_toml_config(&config_file_path) {
+            if !check_duplicates {
+                if let Some(v) = table.get("check_duplicates") {
+                    if let Some(b) = v.as_bool() {
+                        check_duplicates = b;
+                    }
+                }
+            }
+            if exclude_decks.is_empty() {
+                if let Some(v) = table.get("exclude_decks").and_then(|x| x.as_array()) {
+                    exclude_decks = v
+                        .iter()
+                        .filter_map(|e| e.as_str().map(|s| s.to_string()))
+                        .collect();
+                }
+            }
+            if exclude_files.is_empty() {
+                if let Some(v) = table.get("exclude_files").and_then(|x| x.as_array()) {
+                    exclude_files = v
+                        .iter()
+                        .filter_map(|e| e.as_str().map(|s| s.to_string()))
+                        .collect();
+                }
+            }
+
+            if !dry_run {
+                if let Some(v) = table.get("dry_run").and_then(|x| x.as_bool()) {
+                    dry_run = v;
+                }
+            }
+
+            if max_card_width == "auto" {
+                if let Some(v) = table.get("max_card_width").and_then(|x| x.as_str()) {
+                    max_card_width = v.to_string();
+                }
+            }
+
+            if table.get("check_checksums").is_some() && cli.no_cache {
+                // CLI --no-cache present; keep that (CLI precedence)
+            } else if cli.no_cache == false {
+                if let Some(v) = table.get("check_checksums").and_then(|x| x.as_bool()) {
+                    check_checksums = v;
+                }
+            }
+            if generation_concurrency == 1 {
+                if let Some(v) = table
+                    .get("generation_concurrency")
+                    .and_then(|x| x.as_integer())
+                {
+                    generation_concurrency = v.max(1) as usize;
+                }
+            }
+
+            if recompile_on_config_change == "_" {
+                if let Some(v) = table
+                    .get("recompile_on_config_change")
+                    .and_then(|x| x.as_str())
+                {
+                    recompile_on_config_change = v.to_string();
+                }
+            }
+        }
+    }
+
+    // typst flags default minimal
+    let mut typst_global_flags = vec!["--color".to_string(), "always".to_string()];
+    let mut typst_compile_flags = vec!["--root".to_string(), path.clone()];
+
+    if max_card_width != "auto" {
+        typst_compile_flags.push("--input".to_string());
+        typst_compile_flags.push(format!("max_card_width={}", max_card_width));
+    }
+
+    typst_compile_flags.push("--input".to_string());
+    typst_compile_flags.push("typ2anki_compile=1".to_string());
+
+    if !check_duplicates && generation_concurrency > 1 {
+        eprintln!("WARNING: Concurrent generation can't be enabled without duplicate checking. Disabling concurrent generation.");
+        generation_concurrency = 1;
+    }
+
+    let mut cfg = Config {
+        check_duplicates,
+        exclude_decks: exclude_decks
+            .iter()
+            .map(|s| Pattern::new(s).unwrap_or_default())
+            .collect(),
+        exclude_files: exclude_files
+            .iter()
+            .map(|s| Pattern::new(s).unwrap_or_default())
+            .collect(),
+        exclude_decks_string: exclude_decks,
+        asked_path: asked_path.clone(),
+        path,
+        recompile_on_config_change,
+        dry_run,
+        max_card_width,
+        check_checksums,
+        generation_concurrency,
+        is_zip,
+        config_hash: None,
+        output_type: "png".to_string(),
+        typst_global_flags,
+        typst_compile_flags,
+    };
+    cfg.compute_hash();
+
+    if cfg.dry_run {
+        eprintln!("Using config: {:#?}", cfg);
+    }
+
+    cfg
+}
+
+static CACHED_CONFIG: OnceCell<Config> = OnceCell::new();
+
+pub fn get() -> &'static Config {
+    CACHED_CONFIG.get_or_init(|| parse_config())
+}
