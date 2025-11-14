@@ -1,9 +1,10 @@
 use md5;
 use regex::Regex;
 use serde_json::Value;
+use std::cmp::max;
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
+use std::{fs, iter};
 
 // Hashes the string as md5 hex digest
 pub fn hash_string(input: &str) -> String {
@@ -72,4 +73,21 @@ pub fn get_all_typst_imports(typst_content: &str) -> Vec<String> {
     r.sort();
     r.dedup();
     r
+}
+
+pub fn print_header(lines: &[&str], width: usize, border_char: char) {
+    let width = if width == 0 {
+        let max_line_length = lines.iter().map(|line| line.len()).max().unwrap_or(0);
+        max(max_line_length + 10, 80)
+    } else {
+        width
+    };
+
+    let border: String = iter::repeat(border_char).take(width).collect();
+    println!("{}", border);
+    for line in lines {
+        let centered_line = format!("{:^width$}", line, width = width);
+        println!("{}", centered_line);
+    }
+    println!("{}", border);
 }

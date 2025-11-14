@@ -1,16 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
-use crate::{card_wrapper::TypFileStats, config};
+use crate::{card_wrapper::TypFileStats, config, utils};
 use std::io::{self, Write};
 
 pub enum OutputMessage {
-    DbgFoundTypstFiles(HashMap<String, TypFileStats>),
+    DbgFoundTypstFiles(HashMap<PathBuf, TypFileStats>),
     DbgShowConfig(config::Config),
     DbgConfigChangeDetection {
         total_cards: usize,
         config_changes: usize,
     },
+    DbgCreateDeck(String),
     ParsingError(String),
+    NoAnkiConnection,
 }
 
 pub struct OutputManager {}
@@ -59,8 +61,22 @@ impl OutputManager {
                     total_cards, config_changes
                 );
             }
+            OutputMessage::DbgCreateDeck(deck_name) => {
+                println!("Creating deck: {}", deck_name);
+            }
             OutputMessage::ParsingError(err) => {
                 eprintln!("Parsing Error: {}", err);
+            }
+            OutputMessage::NoAnkiConnection => {
+                utils::print_header (
+                    &[
+                        "Anki couldn't be detected.",
+                        "Please make sure Anki is running and the AnkiConnect add-on is installed.",
+                        "For more information about installing AnkiConnect, please see typ2anki's README",
+                    ],
+                    0,
+                    '=',
+                );
             }
         }
     }

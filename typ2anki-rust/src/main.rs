@@ -1,21 +1,31 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use crate::{
-    card_wrapper::{CardInfo, TypFileStats},
-    output::OutputMessage,
+    card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
+    output::{OutputManager, OutputMessage},
 };
 
 mod anki_api;
 mod card_wrapper;
 mod cards_cache;
+mod compile;
 mod config;
+mod generator;
 mod output;
 mod parse_file;
+mod typst_as_library;
 mod utils;
 
 fn main() {
-    let output = output::OutputManager::new();
-    let mut cfg = config::get();
+    let output = OutputManager::new();
+    run(&output);
+}
+
+fn run(output: &OutputManager) {
+    let cfg = config::get();
     if cfg.dry_run {
         output.send(OutputMessage::DbgShowConfig(cfg.clone()));
     }
@@ -44,13 +54,21 @@ fn main() {
     let mut i = 0;
 
     let mut cards: Vec<CardInfo> = Vec::new();
-    let mut files: HashMap<String, TypFileStats> = HashMap::new();
+    let mut files: HashMap<PathBuf, TypFileStats> = HashMap::new();
+    let mut deck_names: HashSet<String> = HashSet::new();
+
+    // parse each typ file
     for filepath in &typ_files {
+        if cfg.is_file_excluded(filepath.to_string_lossy().as_ref()) {
+            continue;
+        }
         let mut file = TypFileStats::new(filepath.clone());
 
         if let Ok(content) = std::fs::read_to_string(filepath) {
             let parsed = parse_file::parse_cards_string(&content);
-            file.total_cards = parsed.len();
+            if parsed.len() == 0 {
+                continue;
+            }
             for card_str in parsed.into_iter() {
                 if parse_file::is_card_empty(&card_str) {
                     file.empty_cards += 1;
@@ -59,13 +77,19 @@ fn main() {
 
                 match CardInfo::from_string(i, &card_str, filepath.clone()) {
                     Ok(card_info) => {
+                        if cfg.is_deck_excluded(card_info.deck_name.as_str()) {
+                            file.skipped_cards += 1;
+                            continue;
+                        }
                         cards_cache_manager.add_card_hash(
                             &card_info.deck_name,
                             &card_info.card_id,
                             &card_info.content_hash,
                         );
+                        deck_names.insert(card_info.deck_name.clone());
                         cards.push(card_info);
                         i += 1;
+                        file.total_cards += 1;
                     }
                     Err(_) => {
                         output.send(OutputMessage::ParsingError(format!(
@@ -81,13 +105,37 @@ fn main() {
                 filepath.to_string_lossy()
             )));
         }
-        files.insert(filepath.to_string_lossy().to_string(), file);
+        if file.total_cards == 0 {
+            continue;
+        }
+        files.insert(filepath.to_owned(), file);
     }
 
-    if cfg.dry_run {
-        output.send(OutputMessage::DbgFoundTypstFiles(files));
+    if cards.len() == 0 {
+        output.send(OutputMessage::ParsingError(
+            "No cards found, aborting.".to_string(),
+        ));
+        return output.fail();
     }
 
+    // check anki connection
+    if !anki_api::check_anki_running() {
+        output.send(OutputMessage::NoAnkiConnection);
+        if !cfg.dry_run {
+            return output.fail();
+        }
+    }
+
+    // create decks in anki
+    for deck_name in &deck_names {
+        if cfg.dry_run {
+            output.send(OutputMessage::DbgCreateDeck(deck_name.to_string()));
+        } else {
+            let _ = anki_api::create_deck(&deck_name.as_str());
+        }
+    }
+
+    // check for duplicate card IDs
     if cfg.check_duplicates {
         let mut seen_ids = HashSet::new();
         let mut e = false;
@@ -112,16 +160,36 @@ fn main() {
 
     cards_cache_manager.detect_configuration_change(&output);
 
+    // set status for each card & assign anki deck name
     for card in &mut cards {
-        let old_hash = 
+        card.set_status(&cards_cache_manager);
+        card.anki_deck_name = Some(anki_api::get_anki_deck_name(&card.deck_name));
     }
 
-    // let cards: Vec<CardInfo> = cards_strings
-    //     .iter()
-    //     .enumerate()
-    //     .map(|(i, s)| {
-    //         CardInfo::from_string(i.try_into().unwrap(), s, filepath.try_into().unwrap()).unwrap()
-    //     })
-    //     .collect();
+    // update files stats based on card statuses
+    for card in &cards {
+        if let Some(file_stats) = files.get_mut(&card.source_file) {
+            match card.modification_status {
+                CardModificationStatus::Unchanged => {
+                    file_stats.unchanged_cards.0 += 1;
+                }
+                CardModificationStatus::Updated => {
+                    file_stats.updated_cards.0 += 1;
+                }
+                CardModificationStatus::New => {
+                    file_stats.new_cards.0 += 1;
+                }
+                CardModificationStatus::Unknown => {}
+            }
+        }
+    }
+
+    let s = generator::generate_card_file(cards.first().unwrap());
+    compile::compile_png_base64(s);
+
+    if cfg.dry_run {
+        output.send(OutputMessage::DbgFoundTypstFiles(files.clone()));
+    }
+
     // println!("Found {} cards: {:#?}", cards.len(), cards);
 }

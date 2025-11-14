@@ -8,12 +8,12 @@ const CACHE_HASH_PART_LENGTH: usize = 34;
 
 #[derive(Debug, Clone)]
 pub struct CardsCacheManager {
-    static_hash: String,
-    old_cache: HashMap<String, String>,
-    new_cache: HashMap<String, String>,
+    pub static_hash: String,
+    pub old_cache: HashMap<String, String>,
+    pub new_cache: HashMap<String, String>,
 }
 
-fn key(deck_name: &str, card_id: &str) -> String {
+pub fn card_key(deck_name: &str, card_id: &str) -> String {
     format!("{}_{}", deck_name, card_id)
 }
 
@@ -49,7 +49,7 @@ impl CardsCacheManager {
 
     pub fn add_card_hash(&mut self, deck_name: &str, card_id: &str, content_hash: &str) {
         self.new_cache.insert(
-            key(deck_name, card_id),
+            card_key(deck_name, card_id),
             cache_concat_hashes_padding(&self.static_hash, content_hash),
         );
     }

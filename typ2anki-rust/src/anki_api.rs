@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 use base64;
 use core::panic;
+use once_cell::sync::OnceCell;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 use std::time::Duration;
 
 // Assume CardInfo lives here; adjust path if needed.
@@ -133,6 +136,35 @@ pub fn get_deck_names() -> Vec<String> {
             .unwrap_or_default(),
         Err(_) => Vec::new(),
     }
+}
+
+static CACHED_DECK_NAMES: OnceCell<Vec<String>> = OnceCell::new();
+
+static ANKI_DECK_MAP: OnceCell<Mutex<HashMap<String, String>>> = OnceCell::new();
+
+pub fn get_anki_deck_name(typ_deck_name: &str) -> String {
+    let map = ANKI_DECK_MAP.get_or_init(|| Mutex::new(HashMap::new()));
+
+    // Check cache
+    let guard = map.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(cached_name) = guard.get(typ_deck_name) {
+        return cached_name.clone();
+    }
+    drop(guard);
+
+    let cached = CACHED_DECK_NAMES.get_or_init(|| get_deck_names());
+    let s = format!("::{}", typ_deck_name);
+    let result = cached
+        .iter()
+        .find(|&name| name.ends_with(&s))
+        .cloned()
+        .unwrap_or_else(|| typ_deck_name.to_string());
+
+    // Update cache
+    let mut guard = map.lock().unwrap_or_else(|e| e.into_inner());
+    guard.insert(typ_deck_name.to_string(), result.clone());
+
+    result
 }
 
 pub fn find_note_id_by_tag(tag: &str) -> Result<Vec<i64>, String> {
