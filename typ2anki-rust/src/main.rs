@@ -1,10 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
+    time::Instant,
 };
 
 use crate::{
     card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
+    generator::generate_card_file_content,
     output::{OutputManager, OutputMessage},
 };
 
@@ -184,8 +186,19 @@ fn run(output: &OutputManager) {
         }
     }
 
-    let s = generator::generate_card_file(cards.first().unwrap());
-    compile::compile_png_base64(s);
+    let now = Instant::now();
+    for card in &cards {
+        // let s = generator::generate_card_file(card);
+        // compile::compile_png_base64(s);
+    }
+    compile::compile_cards(&cards);
+    let elapsed = now.elapsed();
+    println!(
+        "Compiled {} cards in {:.2?} ({:.2} cards/sec)",
+        cards.len(),
+        elapsed,
+        cards.len() as f64 / elapsed.as_secs_f64()
+    );
 
     if cfg.dry_run {
         output.send(OutputMessage::DbgFoundTypstFiles(files.clone()));
