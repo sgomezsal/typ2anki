@@ -1,12 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
+    sync::Arc,
     time::Instant,
 };
 
 use crate::{
     card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
-    generator::generate_card_file_content,
     output::{OutputManager, OutputMessage},
 };
 
@@ -23,10 +23,12 @@ mod utils;
 
 fn main() {
     let output = OutputManager::new();
-    run(&output);
+    run(output);
 }
 
-fn run(output: &OutputManager) {
+fn run(output: OutputManager) {
+    let output = Arc::new(output);
+
     let cfg = config::get();
     if cfg.dry_run {
         output.send(OutputMessage::DbgShowConfig(cfg.clone()));
@@ -187,11 +189,30 @@ fn run(output: &OutputManager) {
     }
 
     let now = Instant::now();
-    for card in &cards {
-        // let s = generator::generate_card_file(card);
-        // compile::compile_png_base64(s);
+
+    // split cards into up to 5 batches and run them concurrently
+    let total = cards.len();
+    if total > 0 {
+        let n_batches = std::cmp::min(4usize, total);
+        let chunk_size = (total + n_batches - 1) / n_batches;
+
+        let mut handles = Vec::with_capacity(n_batches);
+        for i in 0..n_batches {
+            let start = i * chunk_size;
+            let end = ((i + 1) * chunk_size).min(total);
+            let batch = cards[start..end].to_vec();
+            let output_clone = Arc::clone(&output);
+            let handle = std::thread::spawn(move || {
+                compile::compile_cards(&batch, output_clone);
+            });
+            handles.push(handle);
+        }
+
+        for h in handles {
+            let _ = h.join();
+        }
     }
-    compile::compile_cards(&cards);
+
     let elapsed = now.elapsed();
     println!(
         "Compiled {} cards in {:.2?} ({:.2} cards/sec)",

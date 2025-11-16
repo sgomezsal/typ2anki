@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use typst::diag::{eco_format, FileError, FileResult, PackageError, PackageResult};
 use typst::foundations::{Bytes, Datetime};
 use typst::syntax::package::PackageSpec;
-use typst::syntax::{FileId, Source};
+use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt};
@@ -53,7 +53,10 @@ impl TypstWrapperWorld {
             book: LazyHash::new(fonts.book),
             root,
             fonts: fonts.fonts,
-            source: Source::detached(source),
+            source: Source::new(
+                FileId::new(None, VirtualPath::new("main.typ")),
+                source.into(),
+            ),
             time: time::OffsetDateTime::now_utc(),
             cache_directory: std::env::var_os("CACHE_DIRECTORY")
                 .map(|os_path| os_path.into())

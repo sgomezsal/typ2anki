@@ -116,4 +116,31 @@ impl CardInfo {
             self.modification_status = CardModificationStatus::New;
         }
     }
+
+    pub fn path_relative_to_root(&self) -> String {
+        let cfg = config::get();
+
+        // relative path from cfg.path to output_path
+        let relative_path = pathdiff::diff_paths(&self.source_file, &cfg.path)
+            .unwrap_or(self.source_file.clone())
+            .to_string_lossy()
+            .into_owned();
+
+        relative_path
+    }
+
+    pub fn relative_ankiconf_path(&self) -> String {
+        let cfg = config::get();
+        let output_path = self.source_file.parent().unwrap_or(&cfg.path).to_path_buf();
+
+        // relative path from output_path to cfg.path / ankiconf.typ
+        let ankiconf_relative_path = {
+            let ankiconf_path = cfg.path.join("ankiconf.typ");
+            pathdiff::diff_paths(&ankiconf_path, &output_path).unwrap_or(ankiconf_path)
+        }
+        .to_string_lossy()
+        .into_owned();
+
+        ankiconf_relative_path
+    }
 }

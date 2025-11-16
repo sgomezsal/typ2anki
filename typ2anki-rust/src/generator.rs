@@ -2,12 +2,6 @@ use crate::{card_wrapper::CardInfo, config};
 
 pub fn generate_card_file_content(ankiconf_relative_path: String, card_content: String) -> String {
     let cfg = config::get();
-    let card_type = if card_content.contains("custom-card") {
-        "custom-card"
-    } else {
-        "card"
-    };
-    let card_type = "custom-card";
 
     // display_with_width: different when max_card_width == "auto"
     let display_with_width = if cfg.max_card_width == "auto" {
@@ -63,7 +57,7 @@ pub fn generate_card_file_content(ankiconf_relative_path: String, card_content: 
     template.push_str("\n\n");
 
     let cardlet = format!(
-        r#"#let {card_type}(
+        r#"#let card(
       id: "",
       q: "",
       a: "",
@@ -77,8 +71,9 @@ pub fn generate_card_file_content(ankiconf_relative_path: String, card_content: 
           #display_with_width(a)
         ]
       }}
-    }}"#,
-        card_type = card_type
+    }}
+    #let custom-card = card
+    "#
     );
     template.push_str(&cardlet);
     template.push_str("\n\n");
@@ -87,23 +82,13 @@ pub fn generate_card_file_content(ankiconf_relative_path: String, card_content: 
     template
 }
 
+#[allow(dead_code)]
 pub fn generate_card_file(card: &CardInfo) -> String {
-    let cfg = config::get();
-    let output_path = card.source_file.parent().unwrap_or(&cfg.path).to_path_buf();
-
-    // relative path from output_path to cfg.path / ankiconf.typ
-    let ankiconf_relative_path = {
-        let ankiconf_path = cfg.path.join("ankiconf.typ");
-        pathdiff::diff_paths(&ankiconf_path, &output_path).unwrap_or(ankiconf_path)
-    }
-    .to_string_lossy()
-    .into_owned();
-    let ankiconf_relative_path = "ankiconf.typ";
-
     println!(
         "Generating card file for card ID {} at {}",
-        card.card_id, ankiconf_relative_path
+        card.card_id,
+        card.relative_ankiconf_path()
     );
 
-    generate_card_file_content(ankiconf_relative_path.into(), card.content.clone())
+    generate_card_file_content(card.relative_ankiconf_path(), card.content.clone())
 }

@@ -1,6 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{card_wrapper::TypFileStats, config, utils};
+use crate::{
+    card_wrapper::{CardModificationStatus, TypFileStats},
+    config, utils,
+};
 use std::io::{self, Write};
 
 pub enum OutputMessage {
@@ -12,6 +15,11 @@ pub enum OutputMessage {
     },
     DbgCreateDeck(String),
     ParsingError(String),
+    CompiledCard {
+        relative_file: String,
+        card_id: String,
+        card_status: CardModificationStatus,
+    },
     NoAnkiConnection,
 }
 
@@ -76,6 +84,16 @@ impl OutputManager {
                     ],
                     0,
                     '=',
+                );
+            }
+            OutputMessage::CompiledCard {
+                relative_file,
+                card_id,
+                card_status,
+            } => {
+                println!(
+                    "Compiled card ID {} from file {} with status {:?}",
+                    card_id, relative_file, card_status
                 );
             }
         }
