@@ -199,16 +199,21 @@ fn run(output: OutputManager) {
     let now = Instant::now();
     compile::compile_cards_concurrent(&cards, output.clone());
     let elapsed = now.elapsed();
+
+    let compiled_count = cards
+        .iter()
+        .filter(|c| c.modification_status != CardModificationStatus::Unchanged)
+        .count();
+
     println!(
         "Compiled {} cards in {:.2?} ({:.2} cards/sec)",
-        cards.len(),
+        compiled_count,
         elapsed,
-        cards.len() as f64 / elapsed.as_secs_f64()
+        compiled_count as f64 / elapsed.as_secs_f64()
     );
 
+    // At the end, save the cache
     if !cfg.dry_run {
         cards_cache_manager.save_cache(&output);
     }
-
-    // println!("Found {} cards: {:#?}", cards.len(), cards);
 }

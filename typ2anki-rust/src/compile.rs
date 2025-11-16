@@ -129,7 +129,15 @@ pub fn compile_cards(
 
             continue;
         }
-        let document: PagedDocument = out.output.expect("Error compiling typst");
+        if out.output.is_err() {
+            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+                card,
+                Some("Error compiling typst.".to_string()),
+            )));
+            continue;
+        }
+
+        let document: PagedDocument = out.output.unwrap();
 
         if document.pages.len() < 2 {
             output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
@@ -140,10 +148,26 @@ pub fn compile_cards(
         }
 
         let render = typst_render::render(&document.pages[0], 2.0);
-        let front_b64 = base64::encode(render.encode_png().expect("Failed to encode PNG"));
+        let input = render.encode_png();
+        if input.is_err() {
+            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+                card,
+                Some("Error encoding front side PNG.".to_string()),
+            )));
+            continue;
+        }
+        let front_b64 = base64::encode(input.unwrap());
 
         let render = typst_render::render(&document.pages[1], 2.0);
-        let back_b64 = base64::encode(render.encode_png().expect("Failed to encode PNG"));
+        let input = render.encode_png();
+        if input.is_err() {
+            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+                card,
+                Some("Error encoding back side PNG.".to_string()),
+            )));
+            continue;
+        }
+        let back_b64 = base64::encode(input.unwrap());
 
         output.send(OutputMessage::CompiledCard(OutputCompiledCardInfo::build(
             card, None,
@@ -155,6 +179,10 @@ pub fn compile_cards(
                 Some(format!("Error uploading card to Anki: {}", e)),
             )));
             continue;
+        } else {
+            output.send(OutputMessage::PushedCard(OutputCompiledCardInfo::build(
+                card, None,
+            )));
         }
     }
 }

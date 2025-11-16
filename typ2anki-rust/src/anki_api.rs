@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 use base64;
-use core::panic;
 use once_cell::sync::OnceCell;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
@@ -39,7 +38,7 @@ fn send_request(payload: Value) -> Result<Value, String> {
             .post(ANKI_CONNECT_URL)
             .json(&payload)
             .send()
-            .map_err(|e| format!("request error: {}", e))?,
+            .map_err(|e| format!("request error: {:?}", e))?,
     )
 }
 
@@ -279,26 +278,6 @@ impl CardUploaderThread {
         Ok(filename)
     }
 
-    fn update_note(&self, note_id: i64, card: &CardInfo, tags: Vec<String>) -> Result<(), String> {
-        let cfg = config::get();
-        let payload = json!({
-            "action": "updateNoteFields",
-            "version": 6,
-            "params": {
-                "note": {
-                    "id": note_id,
-                    "fields": {
-                        "Front": cfg.template_front(card,card.image_path(1).as_str()),
-                        "Back": cfg.template_back(card,card.image_path(2).as_str()),
-                    },
-                    "tags": tags
-                }
-            }
-        });
-        send_request(payload)?;
-        Ok(())
-    }
-
     pub fn upload_card(
         &self,
         card: &CardInfo,
@@ -312,30 +291,42 @@ impl CardUploaderThread {
         let note_ids = find_note_id_by_tag(&card.card_id)?;
         let tags = vec![card.card_id.clone()];
 
-        if !note_ids.is_empty() {
+        let payload = if !note_ids.is_empty() {
             let note_id = note_ids[0];
-            self.update_note(note_id, card, tags)?;
-            return Ok(());
-        }
 
-        let (model_name, (model_field_front, model_field_back)) = get_basic_model_name();
-        let payload = json!({
-            "action": "addNote",
-            "version": 6,
-            "params": {
-                "note": {
-                    "deckName": card.anki_deck_name,
-                    "modelName": model_name,
-                    "fields": {
-                        model_field_front: cfg.template_front(card,card.image_path(1).as_str()),
-                        model_field_back: cfg.template_back(card,card.image_path(2).as_str()),
-                    },
-                    "tags": tags
+            json!({
+                "action": "updateNoteFields",
+                "version": 6,
+                "params": {
+                    "note": {
+                        "id": note_id,
+                        "fields": {
+                            "Front": cfg.template_front(card,card.image_path(1).as_str()),
+                            "Back": cfg.template_back(card,card.image_path(2).as_str()),
+                        },
+                        "tags": tags
+                    }
                 }
-            }
-        });
+            })
+        } else {
+            let (model_name, (model_field_front, model_field_back)) = get_basic_model_name();
+            json!({
+                "action": "addNote",
+                "version": 6,
+                "params": {
+                    "note": {
+                        "deckName": card.anki_deck_name,
+                        "modelName": model_name,
+                        "fields": {
+                            model_field_front: cfg.template_front(card,card.image_path(1).as_str()),
+                            model_field_back: cfg.template_back(card,card.image_path(2).as_str()),
+                        },
+                        "tags": tags
+                    }
+                }
+            })
+        };
         send_request(payload)?;
-
         Ok(())
     }
 }
