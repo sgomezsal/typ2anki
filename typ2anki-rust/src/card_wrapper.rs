@@ -35,6 +35,7 @@ impl TypFileStats {
         }
     }
 
+    #[allow(dead_code)]
     pub fn total_errors(&self) -> usize {
         self.new_cards.1 + self.updated_cards.1 + self.unchanged_cards.1
     }
@@ -42,7 +43,6 @@ impl TypFileStats {
 
 #[derive(Debug, Clone)]
 pub struct CardInfo {
-    pub internal_id: i64,
     // The file name from which the card is compiled
     pub source_file: PathBuf,
     // The user defined unique card_id
@@ -61,7 +61,7 @@ pub struct CardInfo {
 
 impl CardInfo {
     pub fn from_string(
-        internal_id: i64,
+        _internal_id: i64,
         card_str: &str,
         filepath: PathBuf,
     ) -> Result<Self, String> {
@@ -86,7 +86,6 @@ impl CardInfo {
         let target_deck = target_deck.unwrap();
 
         Ok(Self {
-            internal_id,
             source_file: filepath,
             card_id,
             deck_name: target_deck,
@@ -142,5 +141,9 @@ impl CardInfo {
         .into_owned();
 
         ankiconf_relative_path
+    }
+
+    pub fn image_path(&self, page: usize) -> String {
+        format!("typ-{}-{}.png", self.card_id, page)
     }
 }

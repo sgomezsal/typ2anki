@@ -12,20 +12,12 @@ use std::time::Duration;
 
 // Assume CardInfo lives here; adjust path if needed.
 use crate::card_wrapper::CardInfo;
+use crate::config;
 
 const ANKI_CONNECT_URL: &str = "http://localhost:8765";
-const CARDS_CACHE_FILENAME: &str = "_typ-cards-cache.json";
+pub const CARDS_CACHE_FILENAME: &str = "_typ-cards-cache.json";
 
-fn send_request(payload: Value) -> Result<Value, String> {
-    let client = Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .map_err(|e| format!("reqwest build error: {}", e))?;
-    let resp = client
-        .post(ANKI_CONNECT_URL)
-        .json(&payload)
-        .send()
-        .map_err(|e| format!("request error: {}", e))?;
+fn _handle_response(resp: reqwest::blocking::Response) -> Result<Value, String> {
     let v: Value = resp
         .json()
         .map_err(|e| format!("invalid json response: {}", e))?;
@@ -35,6 +27,20 @@ fn send_request(payload: Value) -> Result<Value, String> {
         }
     }
     Ok(v.get("result").cloned().unwrap_or(Value::Null))
+}
+
+fn send_request(payload: Value) -> Result<Value, String> {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("reqwest build error: {}", e))?;
+    _handle_response(
+        client
+            .post(ANKI_CONNECT_URL)
+            .json(&payload)
+            .send()
+            .map_err(|e| format!("request error: {}", e))?,
+    )
 }
 
 pub fn check_anki_running() -> bool {
@@ -62,10 +68,10 @@ pub fn upload_media(file_path: &Path) -> Result<String, String> {
         .and_then(|s| s.to_str())
         .ok_or_else(|| "invalid filename".to_string())?
         .to_string();
-    upload_file(filename, encoded)
+    upload_file(filename, &encoded)
 }
 
-pub fn upload_file(filename: String, base64_data: String) -> Result<String, String> {
+pub fn upload_file(filename: String, base64_data: &String) -> Result<String, String> {
     let payload = json!({
         "action": "storeMediaFile",
         "version": 6,
@@ -187,45 +193,13 @@ pub fn find_note_id_by_tag(tag: &str) -> Result<Vec<i64>, String> {
     }
 }
 
-pub fn update_note(note_id: i64, card: &CardInfo, tags: Vec<String>) -> Result<(), String> {
-    panic!("Not implemented yet");
-    /* // TODO: use config templates to generate front/back content, e.g.
-    // let front = config().template_front(card, card.output_front_anki_name.as_deref().unwrap_or(""));
-    // let back = config().template_back(card, card.output_back_anki_name.as_deref().unwrap_or(""));
-    // For now we put placeholders or use provided output names if present.
-    let front = card
-        .output_front_anki_name
-        .as_ref()
-        .map(|s| s.clone())
-        .unwrap_or_else(|| "[FRONT]".to_string());
-    let back = card
-        .output_back_anki_name
-        .as_ref()
-        .map(|s| s.clone())
-        .unwrap_or_else(|| "[BACK]".to_string());
+type ModelInfo = (String, (String, String));
 
-    let payload = json!({
-        "action": "updateNoteFields",
-        "version": 6,
-        "params": {
-            "note": {
-                "id": note_id,
-                "fields": {
-                    "Front": front,
-                    "Back": back
-                },
-                "tags": tags
-            }
-        }
-    });
-    send_request(payload)?;
-    Ok(()) */
-}
+static CACHED_BASICAL_MODEL_NAME: OnceCell<ModelInfo> = OnceCell::new();
 
 const BASIC_MODEL_LOCALES: [&str; 3] = ["Basic", "Basique", "Grundlegend"];
 
-pub fn get_basic_model_name() -> Result<(String, Vec<String>), String> {
-    // Returns (model_name, model_field_names)
+fn _get_basic_model_name() -> Result<ModelInfo, String> {
     let payload = json!({ "action": "modelNames", "version": 6 });
     let models = send_request(payload)?;
     let model_list = models
@@ -261,34 +235,90 @@ pub fn get_basic_model_name() -> Result<(String, Vec<String>), String> {
             fields.len()
         ));
     }
-    // TODO: consider caching model name/fields if desirable
-    Ok((model_name, fields))
+
+    Ok((model_name, (fields[0].clone(), fields[1].clone())))
 }
 
-pub fn add_or_update_card(card: &mut CardInfo, tags: Vec<String>) -> Result<(), String> {
-    panic!("Not implemented yet");
-    // ensure images/names exist; Python asserted on output names
-    /* if card.output_back_anki_name.is_none() || card.output_front_anki_name.is_none() {
-        return Err("Card images are not set".to_string());
+fn get_basic_model_name() -> &'static ModelInfo {
+    CACHED_BASICAL_MODEL_NAME.get_or_init(|| {
+        _get_basic_model_name().unwrap_or((
+            "Basic".to_string(),
+            ("Front".to_string(), "Back".to_string()),
+        ))
+    })
+}
+
+pub struct CardUploaderThread {
+    client: Client,
+}
+impl CardUploaderThread {
+    pub fn new() -> Self {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("Failed to build reqwest client");
+        Self { client }
     }
 
-    let note_ids = find_note_id_by_tag(&card.card_id)?;
-    if !note_ids.is_empty() {
-        card.old_anki_id = Some(note_ids[0]);
-        update_note(note_ids[0], card, tags)?;
-        Ok(())
-    } else {
-        let (model_name, model_fields) = get_basic_model_name()?;
-        // TODO: use config templates to create the field HTML, currently use the stored image names or placeholders
-        let front_field = card
-            .output_front_anki_name
-            .clone()
-            .unwrap_or_else(|| "[FRONT]".to_string());
-        let back_field = card
-            .output_back_anki_name
-            .clone()
-            .unwrap_or_else(|| "[BACK]".to_string());
+    fn upload_file(&self, filename: String, base64_data: &String) -> Result<String, String> {
+        let payload = json!({
+            "action": "storeMediaFile",
+            "version": 6,
+            "params": {
+                "filename": filename,
+                "data": base64_data
+            }
+        });
+        _handle_response(
+            self.client
+                .post(ANKI_CONNECT_URL)
+                .json(&payload)
+                .send()
+                .map_err(|e| format!("request error: {}", e))?,
+        )?;
+        Ok(filename)
+    }
 
+    fn update_note(&self, note_id: i64, card: &CardInfo, tags: Vec<String>) -> Result<(), String> {
+        let cfg = config::get();
+        let payload = json!({
+            "action": "updateNoteFields",
+            "version": 6,
+            "params": {
+                "note": {
+                    "id": note_id,
+                    "fields": {
+                        "Front": cfg.template_front(card,card.image_path(1).as_str()),
+                        "Back": cfg.template_back(card,card.image_path(2).as_str()),
+                    },
+                    "tags": tags
+                }
+            }
+        });
+        send_request(payload)?;
+        Ok(())
+    }
+
+    pub fn upload_card(
+        &self,
+        card: &CardInfo,
+        front_data_base64: &String,
+        back_data_base64: &String,
+    ) -> Result<(), String> {
+        let cfg = config::get();
+        self.upload_file(card.image_path(1), front_data_base64)?;
+        self.upload_file(card.image_path(2), back_data_base64)?;
+
+        let note_ids = find_note_id_by_tag(&card.card_id)?;
+        let tags = vec![card.card_id.clone()];
+
+        if !note_ids.is_empty() {
+            let note_id = note_ids[0];
+            self.update_note(note_id, card, tags)?;
+            return Ok(());
+        }
+
+        let (model_name, (model_field_front, model_field_back)) = get_basic_model_name();
         let payload = json!({
             "action": "addNote",
             "version": 6,
@@ -297,14 +327,15 @@ pub fn add_or_update_card(card: &mut CardInfo, tags: Vec<String>) -> Result<(), 
                     "deckName": card.anki_deck_name,
                     "modelName": model_name,
                     "fields": {
-                        model_fields[0]: front_field,
-                        model_fields[1]: back_field
+                        model_field_front: cfg.template_front(card,card.image_path(1).as_str()),
+                        model_field_back: cfg.template_back(card,card.image_path(2).as_str()),
                     },
                     "tags": tags
                 }
             }
         });
         send_request(payload)?;
+
         Ok(())
-    } */
+    }
 }

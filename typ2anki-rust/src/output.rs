@@ -1,10 +1,28 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
-    card_wrapper::{CardModificationStatus, TypFileStats},
+    card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
     config, utils,
 };
 use std::io::{self, Write};
+
+pub struct OutputCompiledCardInfo {
+    pub relative_file: String,
+    pub card_id: String,
+    pub card_status: CardModificationStatus,
+    pub error_message: Option<String>,
+}
+
+impl OutputCompiledCardInfo {
+    pub fn build(card: &CardInfo, error_message: Option<String>) -> Self {
+        OutputCompiledCardInfo {
+            relative_file: card.source_file.to_string_lossy().into_owned(),
+            card_id: card.card_id.clone(),
+            card_status: card.modification_status.clone(),
+            error_message,
+        }
+    }
+}
 
 pub enum OutputMessage {
     DbgFoundTypstFiles(HashMap<PathBuf, TypFileStats>),
@@ -14,13 +32,15 @@ pub enum OutputMessage {
         config_changes: usize,
     },
     DbgCreateDeck(String),
+    DbgSavedCache,
     ParsingError(String),
-    CompiledCard {
-        relative_file: String,
-        card_id: String,
-        card_status: CardModificationStatus,
-    },
+    SkipCompileCard(OutputCompiledCardInfo),
+    CompileError(OutputCompiledCardInfo),
+    PushError(OutputCompiledCardInfo),
+    CompiledCard(OutputCompiledCardInfo),
+    PushedCard(OutputCompiledCardInfo),
     NoAnkiConnection,
+    ErrorSavingCache(String),
 }
 
 pub struct OutputManager {}
@@ -72,6 +92,9 @@ impl OutputManager {
             OutputMessage::DbgCreateDeck(deck_name) => {
                 println!("Creating deck: {}", deck_name);
             }
+            OutputMessage::DbgSavedCache => {
+                println!("Cards cache saved successfully.");
+            }
             OutputMessage::ParsingError(err) => {
                 eprintln!("Parsing Error: {}", err);
             }
@@ -86,14 +109,68 @@ impl OutputManager {
                     '=',
                 );
             }
-            OutputMessage::CompiledCard {
-                relative_file,
+            OutputMessage::ErrorSavingCache(e) => {
+                eprintln!("Error saving cards cache: {}", e);
+            }
+            OutputMessage::SkipCompileCard(OutputCompiledCardInfo {
                 card_id,
+                relative_file,
                 card_status,
-            } => {
+                error_message: _,
+            }) => {
+                println!(
+                    "Skipping compilation of card ID {} from file {} with status {:?}",
+                    card_id, relative_file, card_status
+                );
+            }
+            OutputMessage::CompiledCard(OutputCompiledCardInfo {
+                card_id,
+                relative_file,
+                card_status,
+                error_message: _,
+            }) => {
                 println!(
                     "Compiled card ID {} from file {} with status {:?}",
                     card_id, relative_file, card_status
+                );
+            }
+            OutputMessage::PushedCard(OutputCompiledCardInfo {
+                card_id,
+                relative_file,
+                card_status,
+                error_message: _,
+            }) => {
+                println!(
+                    "Pushed card ID {} from file {} with status {:?} to Anki",
+                    card_id, relative_file, card_status
+                );
+            }
+            OutputMessage::CompileError(OutputCompiledCardInfo {
+                card_id,
+                relative_file,
+                card_status,
+                error_message,
+            }) => {
+                println!(
+                    "Error compiling card ID {} from file {} with status {:?}: {}",
+                    card_id,
+                    relative_file,
+                    card_status,
+                    error_message.unwrap_or("Unknown error".to_string())
+                );
+            }
+            OutputMessage::PushError(OutputCompiledCardInfo {
+                card_id,
+                relative_file,
+                card_status,
+                error_message,
+            }) => {
+                println!(
+                    "Error pushing card to anki: ID {} from file {} with status {:?}: {}",
+                    card_id,
+                    relative_file,
+                    card_status,
+                    error_message.unwrap_or("Unknown error".to_string())
                 );
             }
         }

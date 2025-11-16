@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -11,7 +10,6 @@ use toml::Value as TomlValue;
 use html_escape::encode_double_quoted_attribute;
 
 use crate::card_wrapper::CardInfo;
-use crate::output::OutputManager;
 use crate::utils;
 use std::sync::{Arc, RwLock};
 
@@ -37,8 +35,8 @@ struct Cli {
     exclude_files: Vec<String>,
 
     /// Specify how many cards at a time can be generated. Needs duplicate checking enabled.
-    #[arg(long = "generation-concurrency", default_value_t = 1)]
-    generation_concurrency: usize,
+    #[arg(long = "generation-concurrency", default_value = "")]
+    generation_concurrency: String,
 
     /// Max card width, 'auto' or a value
     #[arg(long = "max-card-width", default_value = "auto")]
@@ -106,8 +104,7 @@ pub struct Config {
     pub is_zip: bool,
     pub config_hash: Option<String>,
     pub output_type: String,
-    pub typst_global_flags: Vec<String>,
-    pub typst_compile_flags: Vec<String>,
+    pub typst_input: Vec<(String, String)>,
 }
 
 impl Config {
@@ -133,23 +130,12 @@ impl Config {
         )
     }
 
-    pub fn card_ppi(&self, _card_info: &CardInfo) -> i32 {
-        -1
-    }
-
-    pub fn path_relative_to_root(&self, p: &Path) -> PathBuf {
-        PathBuf::from(p)
-            .strip_prefix(&self.path)
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|_| PathBuf::from(p))
-    }
-
     pub fn destruct(&self) {
-        // No unzip/tempdir handling here per request.
-        // TODO: if you later add unzip support, delete temporary directory here.
-        if self.is_zip {
-            todo!("Zip file support not implemented yet");
+        // Be careful not to panic in this function
+        if self.dry_run {
+            println!("Destroying config (dry run)");
         }
+        if self.is_zip {}
     }
 
     pub fn compute_hash(&mut self) {
@@ -161,6 +147,29 @@ impl Config {
         let relevant_config = utils::json_sorted_keys(&relevant_config);
         let s = serde_json::to_string(&relevant_config).unwrap();
         self.config_hash = Some(utils::hash_string(&s));
+    }
+}
+
+// RAII guard to ensure Config::destruct() is called when run() exits or unwinds.
+// We call destruct() inside catch_unwind to avoid panics during unwinding.
+pub struct ConfigGuard;
+
+impl Drop for ConfigGuard {
+    fn drop(&mut self) {
+        let _ = std::panic::catch_unwind(|| {
+            let cfg = get();
+            cfg.destruct();
+        });
+    }
+}
+
+fn parse_generation_concurrency(s: &str) -> usize {
+    if s.is_empty() {
+        1
+    } else if s == "max" {
+        num_cpus::get()
+    } else {
+        s.parse::<usize>().unwrap_or(1).max(1)
     }
 }
 
@@ -179,10 +188,10 @@ pub fn parse_config() -> Config {
     let mut dry_run = cli.dry_run;
     let mut max_card_width = cli.max_card_width.clone();
     let mut check_checksums = !cli.no_cache;
-    let mut generation_concurrency = cli.generation_concurrency;
+    let mut generation_concurrency = parse_generation_concurrency(&cli.generation_concurrency);
     let mut recompile_on_config_change = cli.recompile_on_config_change.clone();
 
-    let mut path = get_real_path_simple(&asked_path);
+    let path = get_real_path_simple(&asked_path);
     let is_zip = if path.to_lowercase().ends_with(".zip") {
         true
     } else {
@@ -240,10 +249,12 @@ pub fn parse_config() -> Config {
                 }
             }
             if generation_concurrency == 1 {
-                if let Some(v) = table
-                    .get("generation_concurrency")
-                    .and_then(|x| x.as_integer())
-                {
+                if let Some(v) = table.get("generation_concurrency").and_then(|x| {
+                    Some(parse_generation_concurrency(
+                        x.as_str()
+                            .unwrap_or(x.as_integer().unwrap_or(1).to_string().as_str()),
+                    ))
+                }) {
                     generation_concurrency = v.max(1) as usize;
                 }
             }
@@ -259,21 +270,19 @@ pub fn parse_config() -> Config {
         }
     }
 
-    // typst flags default minimal
-    let mut typst_global_flags = vec!["--color".to_string(), "always".to_string()];
-    let mut typst_compile_flags = vec!["--root".to_string(), path.clone()];
+    let mut typst_input: Vec<(String, String)> = Vec::new();
+    typst_input.push(("typ2anki_compile".to_string(), "1".to_string()));
 
     if max_card_width != "auto" {
-        typst_compile_flags.push("--input".to_string());
-        typst_compile_flags.push(format!("max_card_width={}", max_card_width));
+        typst_input.push(("max_card_width".to_string(), max_card_width.clone()));
     }
-
-    typst_compile_flags.push("--input".to_string());
-    typst_compile_flags.push("typ2anki_compile=1".to_string());
 
     if !check_duplicates && generation_concurrency > 1 {
         eprintln!("WARNING: Concurrent generation can't be enabled without duplicate checking. Disabling concurrent generation.");
         generation_concurrency = 1;
+    } else if generation_concurrency > num_cpus::get() {
+        eprintln!("WARNING: Requested generation concurrency ({}) exceeds number of CPU cores ({}). It is inefficient. Reducing to {}. You can set generation-concurrency to 'max' so that it always takes the amount of logical threads on a given machine.", generation_concurrency, num_cpus::get(), num_cpus::get());
+        generation_concurrency = num_cpus::get();
     }
 
     let mut cfg = Config {
@@ -305,8 +314,7 @@ pub fn parse_config() -> Config {
         is_zip,
         config_hash: None,
         output_type: "png".to_string(),
-        typst_global_flags,
-        typst_compile_flags,
+        typst_input,
     };
     cfg.compute_hash();
 

@@ -21,8 +21,8 @@ fn cache_concat_hashes_padding(hash1: &str, hash2: &str) -> String {
     let mut out = String::new();
     out.push_str(hash1);
     out.push_str(&"0".repeat(CACHE_HASH_PART_LENGTH.saturating_sub(hash1.len())));
-    out.push_str(hash2);
     out.push_str(&"0".repeat(CACHE_HASH_PART_LENGTH.saturating_sub(hash2.len())));
+    out.push_str(hash2);
     out
 }
 
@@ -42,7 +42,7 @@ impl CardsCacheManager {
 
         Self {
             static_hash,
-            new_cache: cache.clone(),
+            new_cache: HashMap::new(),
             old_cache: cache,
         }
     }
@@ -86,6 +86,22 @@ impl CardsCacheManager {
                     *cfg.recompile_on_config_change.write().unwrap() = Some(false);
                 }
             }
+        }
+    }
+
+    pub fn save_cache(&self, output: &OutputManager) {
+        let push: HashMap<String, String> = self
+            .old_cache
+            .clone()
+            .into_iter()
+            .chain(self.new_cache.clone().into_iter())
+            .collect();
+        let s = serde_json::to_string(&push).unwrap_or("{}".to_string());
+        let payload = base64::encode(s);
+        if let Err(e) = anki_api::upload_file(anki_api::CARDS_CACHE_FILENAME.into(), &payload) {
+            output.send(OutputMessage::ErrorSavingCache(e));
+        } else {
+            output.send(OutputMessage::DbgSavedCache);
         }
     }
 }

@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{
+    anki_api::get_anki_deck_name,
     card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
     output::{OutputManager, OutputMessage},
 };
@@ -30,6 +31,8 @@ fn run(output: OutputManager) {
     let output = Arc::new(output);
 
     let cfg = config::get();
+    let _cfg_guard = config::ConfigGuard;
+
     if cfg.dry_run {
         output.send(OutputMessage::DbgShowConfig(cfg.clone()));
     }
@@ -115,6 +118,10 @@ fn run(output: OutputManager) {
         files.insert(filepath.to_owned(), file);
     }
 
+    if cfg.dry_run {
+        output.send(OutputMessage::DbgFoundTypstFiles(files.clone()));
+    }
+
     if cards.len() == 0 {
         output.send(OutputMessage::ParsingError(
             "No cards found, aborting.".to_string(),
@@ -135,7 +142,7 @@ fn run(output: OutputManager) {
         if cfg.dry_run {
             output.send(OutputMessage::DbgCreateDeck(deck_name.to_string()));
         } else {
-            let _ = anki_api::create_deck(&deck_name.as_str());
+            let _ = anki_api::create_deck(&get_anki_deck_name(deck_name));
         }
     }
 
@@ -146,8 +153,9 @@ fn run(output: OutputManager) {
         for card in &cards {
             if seen_ids.contains(&card.card_id) {
                 output.send(OutputMessage::ParsingError(format!(
-                    "Warning: Duplicate card ID found: {}",
-                    card.card_id
+                    "Warning: Duplicate card ID found: {} ({})",
+                    card.card_id,
+                    card.source_file.to_string_lossy()
                 )));
                 e = true;
             } else {
@@ -189,30 +197,7 @@ fn run(output: OutputManager) {
     }
 
     let now = Instant::now();
-
-    // split cards into up to 5 batches and run them concurrently
-    let total = cards.len();
-    if total > 0 {
-        let n_batches = std::cmp::min(4usize, total);
-        let chunk_size = (total + n_batches - 1) / n_batches;
-
-        let mut handles = Vec::with_capacity(n_batches);
-        for i in 0..n_batches {
-            let start = i * chunk_size;
-            let end = ((i + 1) * chunk_size).min(total);
-            let batch = cards[start..end].to_vec();
-            let output_clone = Arc::clone(&output);
-            let handle = std::thread::spawn(move || {
-                compile::compile_cards(&batch, output_clone);
-            });
-            handles.push(handle);
-        }
-
-        for h in handles {
-            let _ = h.join();
-        }
-    }
-
+    compile::compile_cards_concurrent(&cards, output.clone());
     let elapsed = now.elapsed();
     println!(
         "Compiled {} cards in {:.2?} ({:.2} cards/sec)",
@@ -221,8 +206,8 @@ fn run(output: OutputManager) {
         cards.len() as f64 / elapsed.as_secs_f64()
     );
 
-    if cfg.dry_run {
-        output.send(OutputMessage::DbgFoundTypstFiles(files.clone()));
+    if !cfg.dry_run {
+        cards_cache_manager.save_cache(&output);
     }
 
     // println!("Found {} cards: {:#?}", cards.len(), cards);
