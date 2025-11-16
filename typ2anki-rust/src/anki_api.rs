@@ -1,17 +1,13 @@
-#![allow(dead_code)]
-use base64;
 use once_cell::sync::OnceCell;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
 
 // Assume CardInfo lives here; adjust path if needed.
 use crate::card_wrapper::CardInfo;
-use crate::config;
+use crate::{config, utils};
 
 const ANKI_CONNECT_URL: &str = "http://localhost:8765";
 pub const CARDS_CACHE_FILENAME: &str = "_typ-cards-cache.json";
@@ -59,17 +55,6 @@ pub fn check_anki_running() -> bool {
     false
 }
 
-pub fn upload_media(file_path: &Path) -> Result<String, String> {
-    let data = fs::read(file_path).map_err(|e| format!("read file error: {}", e))?;
-    let encoded = base64::encode(&data);
-    let filename = file_path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| "invalid filename".to_string())?
-        .to_string();
-    upload_file(filename, &encoded)
-}
-
 pub fn upload_file(filename: String, base64_data: &String) -> Result<String, String> {
     let payload = json!({
         "action": "storeMediaFile",
@@ -83,6 +68,7 @@ pub fn upload_file(filename: String, base64_data: &String) -> Result<String, Str
     Ok(filename)
 }
 
+#[allow(dead_code)]
 pub fn get_media_dir_path() -> Result<String, String> {
     let payload = json!({
         "action": "getMediaDirPath",
@@ -103,7 +89,7 @@ pub fn get_cards_cache_string() -> Option<String> {
     match send_request(payload) {
         Ok(val) => {
             if let Some(s) = val.as_str() {
-                match base64::decode(s) {
+                match utils::b64_decode(s) {
                     Ok(bytes) => match String::from_utf8(bytes) {
                         Ok(s) => Some(s),
                         Err(_) => None,

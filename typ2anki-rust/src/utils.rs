@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD, DecodeError, Engine as _};
 use md5;
 use regex::Regex;
 use serde_json::Value;
@@ -90,4 +91,12 @@ pub fn print_header(lines: &[&str], width: usize, border_char: char) {
         println!("{}", centered_line);
     }
     println!("{}", border);
+}
+
+pub fn b64_encode<T: AsRef<[u8]>>(input: T) -> String {
+    STANDARD.encode(input)
+}
+
+pub fn b64_decode(input: &str) -> Result<Vec<u8>, DecodeError> {
+    STANDARD.decode(input)
 }

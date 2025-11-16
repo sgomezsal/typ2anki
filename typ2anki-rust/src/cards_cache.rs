@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::output::{OutputManager, OutputMessage};
-use crate::utils::hash_string;
+use crate::utils::{self, hash_string};
 use crate::{anki_api, config};
 
 const CACHE_HASH_PART_LENGTH: usize = 34;
@@ -54,6 +54,13 @@ impl CardsCacheManager {
         );
     }
 
+    // Removes the new hash for a card (used when a card fails to compile/upload)
+    pub fn remove_card_hash(&mut self, deck_name: &str, card_id: &str) {
+        let key = card_key(deck_name, card_id);
+        self.new_cache.remove(&key);
+        self.old_cache.remove(&key);
+    }
+
     pub fn detect_configuration_change(&mut self, output: &OutputManager) {
         let cfg = config::get();
         if !cfg.check_checksums {
@@ -97,7 +104,7 @@ impl CardsCacheManager {
             .chain(self.new_cache.clone().into_iter())
             .collect();
         let s = serde_json::to_string(&push).unwrap_or("{}".to_string());
-        let payload = base64::encode(s);
+        let payload = utils::b64_encode(s);
         if let Err(e) = anki_api::upload_file(anki_api::CARDS_CACHE_FILENAME.into(), &payload) {
             output.send(OutputMessage::ErrorSavingCache(e));
         } else {

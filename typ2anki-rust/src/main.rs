@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Instant,
 };
 
@@ -196,9 +196,17 @@ fn run(output: OutputManager) {
         }
     }
 
+    // Compile and upload cards concurrently
+    let cards_cache_manager = Arc::new(Mutex::new(cards_cache_manager));
+
     let now = Instant::now();
-    compile::compile_cards_concurrent(&cards, output.clone());
+    compile::compile_cards_concurrent(&cards, output.clone(), cards_cache_manager.clone());
     let elapsed = now.elapsed();
+
+    let cards_cache_manager = match Arc::try_unwrap(cards_cache_manager) {
+        Ok(mutex) => mutex.into_inner().unwrap(),
+        Err(_) => panic!("Failed to unwrap Arc for CardsCacheManager"),
+    };
 
     let compiled_count = cards
         .iter()

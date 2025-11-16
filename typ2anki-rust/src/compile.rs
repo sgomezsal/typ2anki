@@ -1,4 +1,7 @@
-use std::{ops::Range, sync::Arc};
+use std::{
+    ops::Range,
+    sync::{Arc, Mutex},
+};
 use typst::{
     layout::PagedDocument,
     syntax::{FileId, Source, VirtualPath},
@@ -7,34 +10,23 @@ use typst::{
 use crate::{
     anki_api,
     card_wrapper::{CardInfo, CardModificationStatus},
+    cards_cache::CardsCacheManager,
     config, generator,
     output::{OutputCompiledCardInfo, OutputManager, OutputMessage},
     typst_as_library::{self, DiagnosticFormat},
+    utils,
 };
 
-/* pub fn compile_png_base64(typst_content: String) {
-    let cfg = config::get();
-    let mut world = typst_as_library::TypstWrapperWorld::new(
-        cfg.path.to_string_lossy().into_owned(),
-        typst_content.to_owned(),
-    );
-
-    let document: PagedDocument = typst::compile(&world)
-        .output
-        .expect("Error compiling typst");
-
-    let render = typst_render::render(document.pages.first().unwrap(), 2.0);
-    let png = render.encode_png().expect("Failed to encode PNG");
-
-    println!("Compiled card to PNG ({} bytes)", png.len());
-
-    // std::fs::write("/tmp/image1.png", png).expect("Failed to write /tmp/image1.png");
-} */
-
-pub fn compile_cards_concurrent(cards: &Vec<CardInfo>, output: Arc<OutputManager>) {
+// A cache_manager should be passed so that in the case of an error during
+// compilation or upload, the card's hash can be removed from the cache.
+pub fn compile_cards_concurrent(
+    cards: &Vec<CardInfo>,
+    output: Arc<OutputManager>,
+    cache_manager: Arc<Mutex<CardsCacheManager>>,
+) {
     let cfg = config::get();
     if cfg.generation_concurrency <= 1 {
-        compile_cards(cards, output);
+        compile_cards(cards, output, cache_manager);
         return;
     }
 
@@ -49,8 +41,9 @@ pub fn compile_cards_concurrent(cards: &Vec<CardInfo>, output: Arc<OutputManager
             let end = ((i + 1) * chunk_size).min(total);
             let batch = cards[start..end].to_vec();
             let output_clone = Arc::clone(&output);
+            let cache_manager_clone = Arc::clone(&cache_manager);
             let handle = std::thread::spawn(move || {
-                compile_cards(&batch, output_clone);
+                compile_cards(&batch, output_clone, cache_manager_clone);
             });
             handles.push(handle);
         }
@@ -64,6 +57,7 @@ pub fn compile_cards_concurrent(cards: &Vec<CardInfo>, output: Arc<OutputManager
 pub fn compile_cards(
     cards: &Vec<CardInfo>,
     output: Arc<OutputManager>,
+    cache_manager: Arc<Mutex<CardsCacheManager>>,
     // file_stats: &HashMap<PathBuf, Mutex<TypFileStats>>,
 ) {
     if cards.is_empty() {
@@ -84,6 +78,12 @@ pub fn compile_cards(
     );
 
     let mut ra: Range<usize> = 0..0;
+
+    let card_error = |card: &CardInfo, m: OutputMessage| {
+        output.send(m);
+        let mut cache_manager = cache_manager.lock().unwrap();
+        cache_manager.remove_card_hash(card.deck_name.as_str(), &card.card_id);
+    };
 
     for card in cards {
         if card.modification_status == CardModificationStatus::Unchanged {
@@ -122,62 +122,77 @@ pub fn compile_cards(
             )
             .expect("Failed to print diagnostics");
 
-            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+            card_error(
                 card,
-                Some(s),
-            )));
+                OutputMessage::CompileError(OutputCompiledCardInfo::build(card, Some(s))),
+            );
 
             continue;
         }
         if out.output.is_err() {
-            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+            card_error(
                 card,
-                Some("Error compiling typst.".to_string()),
-            )));
+                OutputMessage::CompileError(OutputCompiledCardInfo::build(
+                    card,
+                    Some("Error compiling typst.".to_string()),
+                )),
+            );
             continue;
         }
 
         let document: PagedDocument = out.output.unwrap();
 
         if document.pages.len() < 2 {
-            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+            card_error(
                 card,
-                Some("Error: Compiled document has less than 2 pages.".to_string()),
-            )));
+                OutputMessage::CompileError(OutputCompiledCardInfo::build(
+                    card,
+                    Some("Error: Compiled document has less than 2 pages.".to_string()),
+                )),
+            );
             continue;
         }
 
         let render = typst_render::render(&document.pages[0], 2.0);
         let input = render.encode_png();
         if input.is_err() {
-            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+            card_error(
                 card,
-                Some("Error encoding front side PNG.".to_string()),
-            )));
+                OutputMessage::CompileError(OutputCompiledCardInfo::build(
+                    card,
+                    Some("Error encoding front side PNG.".to_string()),
+                )),
+            );
             continue;
         }
-        let front_b64 = base64::encode(input.unwrap());
+        let front_b64 = utils::b64_encode(input.unwrap());
 
         let render = typst_render::render(&document.pages[1], 2.0);
         let input = render.encode_png();
         if input.is_err() {
-            output.send(OutputMessage::CompileError(OutputCompiledCardInfo::build(
+            card_error(
                 card,
-                Some("Error encoding back side PNG.".to_string()),
-            )));
+                OutputMessage::CompileError(OutputCompiledCardInfo::build(
+                    card,
+                    Some("Error encoding back side PNG.".to_string()),
+                )),
+            );
             continue;
         }
-        let back_b64 = base64::encode(input.unwrap());
+        let back_b64 = utils::b64_encode(input.unwrap());
 
         output.send(OutputMessage::CompiledCard(OutputCompiledCardInfo::build(
             card, None,
         )));
 
         if let Err(e) = uploader.upload_card(card, &front_b64, &back_b64) {
-            output.send(OutputMessage::PushError(OutputCompiledCardInfo::build(
+            card_error(
                 card,
-                Some(format!("Error uploading card to Anki: {}", e)),
-            )));
+                OutputMessage::PushError(OutputCompiledCardInfo::build(
+                    card,
+                    Some(format!("Error uploading card to Anki: {}", e)),
+                )),
+            );
             continue;
         } else {
             output.send(OutputMessage::PushedCard(OutputCompiledCardInfo::build(
