@@ -29,3 +29,4 @@ codespan-reporting = "0.13.1"
 num_cpus = "1.17.0"
 walkdir = "2.5.0"
 zune-inflate = { version = "0.2.54", default-features = false, features = ["gzip", "std"] }
+indicatif = "0.18.3"

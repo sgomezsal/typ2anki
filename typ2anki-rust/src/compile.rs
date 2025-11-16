@@ -21,7 +21,7 @@ use crate::{
 // compilation or upload, the card's hash can be removed from the cache.
 pub fn compile_cards_concurrent(
     cards: &Vec<CardInfo>,
-    output: Arc<OutputManager>,
+    output: Arc<impl OutputManager + 'static>,
     cache_manager: Arc<Mutex<CardsCacheManager>>,
 ) {
     let cfg = config::get();
@@ -56,7 +56,7 @@ pub fn compile_cards_concurrent(
 
 pub fn compile_cards(
     cards: &Vec<CardInfo>,
-    output: Arc<OutputManager>,
+    output: Arc<impl OutputManager>,
     cache_manager: Arc<Mutex<CardsCacheManager>>,
     // file_stats: &HashMap<PathBuf, Mutex<TypFileStats>>,
 ) {

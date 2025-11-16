@@ -9,6 +9,7 @@ use crate::{
     anki_api::get_anki_deck_name,
     card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
     output::{OutputManager, OutputMessage},
+    output_console::OutputConsole,
 };
 
 mod anki_api;
@@ -18,16 +19,17 @@ mod compile;
 mod config;
 mod generator;
 mod output;
+mod output_console;
 mod parse_file;
 mod typst_as_library;
 mod utils;
 
 fn main() {
-    let output = OutputManager::new();
+    let output = OutputConsole::new();
     run(output);
 }
 
-fn run(output: OutputManager) {
+fn run(output: impl OutputManager + 'static) {
     let output = Arc::new(output);
 
     let cfg = config::get();
@@ -38,7 +40,8 @@ fn run(output: OutputManager) {
     }
     parse_file::check_ankiconf_exists();
     let ankiconf_hash = parse_file::get_ankiconf_hash();
-    let mut cards_cache_manager = cards_cache::CardsCacheManager::init(ankiconf_hash, &output);
+    let mut cards_cache_manager =
+        cards_cache::CardsCacheManager::init(ankiconf_hash, output.as_ref());
 
     // find all *.typ files inside of cfg.path, including nested
     let typ_files = walkdir::WalkDir::new(&cfg.path)
@@ -115,11 +118,7 @@ fn run(output: OutputManager) {
         if file.total_cards == 0 {
             continue;
         }
-        files.insert(filepath.to_owned(), file);
-    }
-
-    if cfg.dry_run {
-        output.send(OutputMessage::DbgFoundTypstFiles(files.clone()));
+        files.insert(filepath.clone(), file);
     }
 
     if cards.len() == 0 {
@@ -170,7 +169,7 @@ fn run(output: OutputManager) {
         }
     }
 
-    cards_cache_manager.detect_configuration_change(&output);
+    cards_cache_manager.detect_configuration_change(output.as_ref());
 
     // set status for each card & assign anki deck name
     for card in &mut cards {
@@ -196,12 +195,16 @@ fn run(output: OutputManager) {
         }
     }
 
+    output.send(OutputMessage::ListTypstFiles(files.clone()));
+
     // Compile and upload cards concurrently
     let cards_cache_manager = Arc::new(Mutex::new(cards_cache_manager));
 
     let now = Instant::now();
     compile::compile_cards_concurrent(&cards, output.clone(), cards_cache_manager.clone());
     let elapsed = now.elapsed();
+
+    output.send(OutputMessage::DbgCompilationDone);
 
     let cards_cache_manager = match Arc::try_unwrap(cards_cache_manager) {
         Ok(mutex) => mutex.into_inner().unwrap(),
@@ -222,6 +225,6 @@ fn run(output: OutputManager) {
 
     // At the end, save the cache
     if !cfg.dry_run {
-        cards_cache_manager.save_cache(&output);
+        cards_cache_manager.save_cache(output.as_ref());
     }
 }

@@ -27,7 +27,7 @@ fn cache_concat_hashes_padding(hash1: &str, hash2: &str) -> String {
 }
 
 impl CardsCacheManager {
-    pub fn init(ankiconf_hash: String, _output: &OutputManager) -> Self {
+    pub fn init(ankiconf_hash: String, _output: &impl OutputManager) -> Self {
         let cfg = config::get();
         let static_hash =
             hash_string(format!("{}{}", ankiconf_hash, cfg.config_hash.as_ref().unwrap()).as_str());
@@ -61,7 +61,7 @@ impl CardsCacheManager {
         self.old_cache.remove(&key);
     }
 
-    pub fn detect_configuration_change(&mut self, output: &OutputManager) {
+    pub fn detect_configuration_change(&mut self, output: &impl OutputManager) {
         let cfg = config::get();
         if !cfg.check_checksums {
             return;
@@ -96,7 +96,7 @@ impl CardsCacheManager {
         }
     }
 
-    pub fn save_cache(&self, output: &OutputManager) {
+    pub fn save_cache(&self, output: &impl OutputManager) {
         let push: HashMap<String, String> = self
             .old_cache
             .clone()
