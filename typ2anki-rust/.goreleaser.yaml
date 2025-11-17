@@ -42,8 +42,11 @@ release:
     replace_existing_artifacts: true
     target_commitish: "{{ .Commit }}"
     make_latest: true
-    mode: append
+    mode: replace
     name_template: "Typ2Anki {{ .Tag }}"
     header: |
         # Typ2Anki Release {{ .Tag }}
     include_meta: true
+
+changelog:
+    use: github
