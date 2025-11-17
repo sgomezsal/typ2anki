@@ -27,7 +27,7 @@ jobs:
               working-directory: ./typ2anki-rust
               run: |
                   v=$(cargo metadata --no-deps --format-version 1 | jq -r ".packages[0].version")
-                  echo "version=$v\n" >> $GITHUB_OUTPUT
+                  echo "version=$v" >> $GITHUB_OUTPUT
             - name: Check that tag does not exist
               working-directory: ./typ2anki-rust
               run: |
