@@ -1,5 +1,7 @@
 use std::{
+    collections::HashMap,
     ops::Range,
+    path::PathBuf,
     sync::{Arc, Mutex},
 };
 use typst::{
@@ -9,7 +11,7 @@ use typst::{
 
 use crate::{
     anki_api,
-    card_wrapper::{CardInfo, CardModificationStatus},
+    card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
     cards_cache::CardsCacheManager,
     config, generator,
     output::{OutputCompiledCardInfo, OutputManager, OutputMessage},
@@ -23,10 +25,11 @@ pub fn compile_cards_concurrent(
     cards: &Vec<CardInfo>,
     output: Arc<impl OutputManager + 'static>,
     cache_manager: Arc<Mutex<CardsCacheManager>>,
+    file_stats: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>,
 ) {
     let cfg = config::get();
     if cfg.generation_concurrency <= 1 {
-        compile_cards(cards, output, cache_manager);
+        compile_cards(cards, output, cache_manager, file_stats);
         return;
     }
 
@@ -42,8 +45,9 @@ pub fn compile_cards_concurrent(
             let batch = cards[start..end].to_vec();
             let output_clone = Arc::clone(&output);
             let cache_manager_clone = Arc::clone(&cache_manager);
+            let file_stats_clone = Arc::clone(&file_stats);
             let handle = std::thread::spawn(move || {
-                compile_cards(&batch, output_clone, cache_manager_clone);
+                compile_cards(&batch, output_clone, cache_manager_clone, file_stats_clone);
             });
             handles.push(handle);
         }
@@ -58,7 +62,7 @@ pub fn compile_cards(
     cards: &Vec<CardInfo>,
     output: Arc<impl OutputManager>,
     cache_manager: Arc<Mutex<CardsCacheManager>>,
-    // file_stats: &HashMap<PathBuf, Mutex<TypFileStats>>,
+    file_stats: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>,
 ) {
     if cards.is_empty() {
         return;
@@ -83,6 +87,16 @@ pub fn compile_cards(
         output.send(m);
         let mut cache_manager = cache_manager.lock().unwrap();
         cache_manager.remove_card_hash(card.deck_name.as_str(), &card.card_id);
+
+        let mut file_stats = file_stats.lock().unwrap();
+        if let Some(stats) = file_stats.get_mut(&card.source_file) {
+            match card.modification_status {
+                CardModificationStatus::New => stats.new_cards.1 += 1,
+                CardModificationStatus::Updated => stats.updated_cards.1 += 1,
+                CardModificationStatus::Unchanged => stats.unchanged_cards.1 += 1,
+                CardModificationStatus::Unknown => {}
+            }
+        }
     };
 
     for card in cards {

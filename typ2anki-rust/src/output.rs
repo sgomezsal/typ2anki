@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
@@ -24,7 +28,7 @@ impl OutputCompiledCardInfo {
 }
 
 pub enum OutputMessage {
-    ListTypstFiles(HashMap<PathBuf, TypFileStats>),
+    ListTypstFiles(Arc<Mutex<HashMap<PathBuf, TypFileStats>>>),
     DbgShowConfig(config::Config),
     DbgConfigChangeDetection {
         total_cards: usize,
@@ -32,7 +36,9 @@ pub enum OutputMessage {
     },
     DbgCreateDeck(String),
     DbgSavedCache,
-    DbgCompilationDone,
+    DbgCompilationDone {
+        files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>,
+    },
     ParsingError(String),
     SkipCompileCard(OutputCompiledCardInfo),
     CompileError(OutputCompiledCardInfo),

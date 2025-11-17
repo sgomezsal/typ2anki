@@ -1,3 +1,4 @@
+use colored::*;
 use regex::Regex;
 use std::{path::PathBuf, sync::LazyLock};
 
@@ -12,6 +13,14 @@ pub enum CardModificationStatus {
 }
 
 type CardCountPair = (usize, usize); // (total count, errors)
+
+fn card_pair_status((total, errors): &CardCountPair) -> String {
+    if *errors == 1 {
+        format!("{}", total.to_string())
+    } else {
+        format!("{}/{}", (total - errors).to_string().red(), total)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct TypFileStats {
@@ -38,6 +47,19 @@ impl TypFileStats {
     #[allow(dead_code)]
     pub fn total_errors(&self) -> usize {
         self.new_cards.1 + self.updated_cards.1 + self.unchanged_cards.1
+    }
+
+    pub fn stats_colored(&self) -> String {
+        let separator = " | ".white();
+        format!(
+            "{}{}{}{}{}{}",
+            "+".green(),
+            card_pair_status(&self.new_cards).green(),
+            separator,
+            "↑".green(),
+            card_pair_status(&self.updated_cards).yellow(),
+            separator,
+        )
     }
 }
 

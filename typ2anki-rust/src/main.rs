@@ -64,8 +64,10 @@ fn run(output: impl OutputManager + 'static) {
     let mut i = 0;
 
     let mut cards: Vec<CardInfo> = Vec::new();
-    let mut files: HashMap<PathBuf, TypFileStats> = HashMap::new();
+    let files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut deck_names: HashSet<String> = HashSet::new();
+
+    let mut files_lock = files.lock().unwrap();
 
     // parse each typ file
     for filepath in &typ_files {
@@ -118,7 +120,7 @@ fn run(output: impl OutputManager + 'static) {
         if file.total_cards == 0 {
             continue;
         }
-        files.insert(filepath.clone(), file);
+        files_lock.insert(filepath.clone(), file);
     }
 
     if cards.len() == 0 {
@@ -179,7 +181,7 @@ fn run(output: impl OutputManager + 'static) {
 
     // update files stats based on card statuses
     for card in &cards {
-        if let Some(file_stats) = files.get_mut(&card.source_file) {
+        if let Some(file_stats) = files_lock.get_mut(&card.source_file) {
             match card.modification_status {
                 CardModificationStatus::Unchanged => {
                     file_stats.unchanged_cards.0 += 1;
@@ -195,21 +197,30 @@ fn run(output: impl OutputManager + 'static) {
         }
     }
 
+    drop(files_lock);
+
     output.send(OutputMessage::ListTypstFiles(files.clone()));
 
     // Compile and upload cards concurrently
     let cards_cache_manager = Arc::new(Mutex::new(cards_cache_manager));
 
     let now = Instant::now();
-    compile::compile_cards_concurrent(&cards, output.clone(), cards_cache_manager.clone());
+    compile::compile_cards_concurrent(
+        &cards,
+        output.clone(),
+        cards_cache_manager.clone(),
+        files.clone(),
+    );
     let elapsed = now.elapsed();
-
-    output.send(OutputMessage::DbgCompilationDone);
 
     let cards_cache_manager = match Arc::try_unwrap(cards_cache_manager) {
         Ok(mutex) => mutex.into_inner().unwrap(),
         Err(_) => panic!("Failed to unwrap Arc for CardsCacheManager"),
     };
+
+    output.send(OutputMessage::DbgCompilationDone {
+        files: files.clone(),
+    });
 
     let compiled_count = cards
         .iter()

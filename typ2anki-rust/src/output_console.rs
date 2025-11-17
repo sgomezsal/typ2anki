@@ -26,7 +26,8 @@ impl OutputConsole {
         }
     }
 
-    fn create_progress_bars(&self, files: HashMap<PathBuf, TypFileStats>) {
+    fn create_progress_bars(&self, files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>) {
+        let files = files.lock().unwrap();
         {
             let mut visible = self.bars_visible.lock().unwrap();
             *visible = true;
@@ -48,6 +49,7 @@ impl OutputConsole {
         let longest_path = filenames.iter().map(|p| p.len()).max().unwrap_or(20) as u64;
 
         for ((path, stats), filename) in files.iter().zip(filenames.iter()) {
+            println!("{}", stats.stats_colored());
             let pb = self.create_progress_bar(filename, longest_path + 1, stats.total_cards as u64);
             bars.insert(path.to_string_lossy().to_string(), pb);
         }
@@ -93,7 +95,7 @@ impl OutputConsole {
         self.println("=".repeat(width));
     }
 
-    fn finish_all_bars(&self) {
+    fn finish_all_bars(&self, files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>) {
         let bars = self.bars.lock().unwrap();
         for pb in bars.values() {
             if !pb.is_finished() {
@@ -214,8 +216,8 @@ impl OutputManager for OutputConsole {
                 ));
                 self.progress_on_bar(&relative_file, 1);
             }
-            OutputMessage::DbgCompilationDone => {
-                self.finish_all_bars();
+            OutputMessage::DbgCompilationDone { files } => {
+                self.finish_all_bars(files);
                 self.print_separator();
             }
         }
