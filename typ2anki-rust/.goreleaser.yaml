@@ -21,6 +21,7 @@ builds:
 
       flags:
           - --release
+          - --locked
 
       hooks:
           post: strip --strip-all {{ .Path }}
