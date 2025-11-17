@@ -287,6 +287,7 @@ impl OutputManager for OutputConsole {
             }
             OutputMessage::DbgCompilationDone { files } => {
                 self.finish_all_bars(files);
+                self.println("".to_string());
                 self.print_separator();
             }
         }
