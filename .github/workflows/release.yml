@@ -59,6 +59,7 @@ jobs:
               run: sudo apt-get install -y mingw-w64
             - name: Cache
               uses: actions/cache@v4
+              if: always()
               with:
                   path: |
                       ~/.cargo/registry
@@ -71,7 +72,6 @@ jobs:
             - name: Run GoReleaser
               id: goreleaser
               uses: goreleaser/goreleaser-action@v6
-              continue-on-error: true
               with:
                   workdir: ./typ2anki-rust
                   distribution: goreleaser
@@ -81,9 +81,5 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             - uses: actions/attest-build-provenance@v3
               continue-on-error: true
-              if: steps.goreleaser.outcome == 'success'
               with:
                   subject-checksums: ./typ2anki-rust/goreleaser-dist/checksums.txt
-            - name: Fail if GoReleaser failed
-              if: steps.goreleaser.outcome != 'success'
-              run: exit 1
