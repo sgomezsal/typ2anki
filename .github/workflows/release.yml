@@ -47,7 +47,7 @@ jobs:
                   workdir: ./typ2anki-rust
                   distribution: goreleaser
                   version: "~> v2"
-                  args: release --clean
+                  args: release --clean --verbose
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   _VERSION: ${{ steps.get_version.outputs.version }}
