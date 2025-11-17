@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+dist: goreleaser-dist
+project_name: typ2anki
+env:
+    - BUILD_VERSION={{ if index .Env "_VERSION"  }}{{ .Env._VERSION }}{{ else }}DEV{{ end }}
+builds:
+    - id: typ2anki
+      builder: rust
+      binary: typ2anki
+      #   no_unique_dist_dir: true
+      # List of targets to be built, in Rust's format.
+      # Default: [ "x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin" ]
+      targets:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          #   - aarch64-unknown-linux-musl
+          #   - x86_64-apple-darwin
+          #   - aarch64-apple-darwin
+          - x86_64-pc-windows-gnu
+
+      flags:
+          - --release
+
+      hooks:
+          post: strip --strip-all {{ .Path }}
+
+      skip: false
+archives:
+    - id: typ2anki-archive
+      meta: false
+      name_template: '{{.ProjectName}}-{{.Env.BUILD_VERSION}}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-{{ .Os }}-{{if contains .Target "gnu" }}gnu{{else if contains .Target "musl"}}musl{{else if contains .Target "msvc" }}msvc{{end}}'
+      format_overrides:
+          - goos: windows
+            formats: ["zip"]
+      allow_different_binary_count: true
+      strip_binary_directory: true
+
+release:
+    draft: true
+    use_existing_draft: true
+    replace_existing_artifacts: true
+    target_commitish: "{{ .Commit }}"
+    make_latest: true
+    mode: append
+    header: |
+        # Typ2Anki Release {{ .Tag }}
+    include_meta: true

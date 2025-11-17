@@ -238,4 +238,6 @@ fn run(output: impl OutputManager + 'static) {
     if !cfg.dry_run {
         cards_cache_manager.save_cache(output.as_ref());
     }
+
+    output.send(OutputMessage::DbgDone);
 }

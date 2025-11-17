@@ -201,7 +201,6 @@ impl OutputManager for OutputConsole {
     }
 
     fn send(&self, msg: OutputMessage) {
-        let cfg = config::get();
         match msg {
             OutputMessage::ListTypstFiles(files) => {
                 self.print_separator();
@@ -290,6 +289,7 @@ impl OutputManager for OutputConsole {
                 self.println("".to_string());
                 self.print_separator();
             }
+            OutputMessage::DbgDone => {}
         }
     }
 }

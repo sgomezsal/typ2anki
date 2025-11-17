@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use tempfile::tempdir;
 
 use clap::Parser;
 use glob::Pattern;
@@ -131,11 +132,19 @@ impl Config {
     }
 
     pub fn destruct(&self) {
-        // Be careful not to panic in this function
+        // Be careful not to panic in this function, as it is called during unwinding.
         if self.dry_run {
             println!("Destroying config (dry run)");
         }
-        if self.is_zip {}
+        if self.is_zip && self.asked_path != self.path.to_string_lossy() {
+            if let Err(e) = fs::remove_dir_all(&self.path) {
+                eprintln!(
+                    "Warning: Failed to remove temporary extracted zip directory {}: {}",
+                    self.path.display(),
+                    e
+                );
+            }
+        }
     }
 
     pub fn compute_hash(&mut self) {
@@ -191,7 +200,7 @@ pub fn parse_config() -> Config {
     let mut generation_concurrency = parse_generation_concurrency(&cli.generation_concurrency);
     let mut recompile_on_config_change = cli.recompile_on_config_change.clone();
 
-    let path = get_real_path_simple(&asked_path);
+    let mut path = get_real_path_simple(&asked_path);
     let is_zip = if path.to_lowercase().ends_with(".zip") {
         true
     } else {
@@ -199,7 +208,12 @@ pub fn parse_config() -> Config {
     };
 
     if is_zip {
-        todo!("Zip file support not implemented yet");
+        let dir = tempdir()
+            .expect("Failed to create temporary directory for zip extraction")
+            .path()
+            .to_path_buf();
+
+        path = dir.to_string_lossy().to_string();
     }
 
     if !cli.config_file.is_empty() {

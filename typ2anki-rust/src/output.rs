@@ -39,6 +39,7 @@ pub enum OutputMessage {
     DbgCompilationDone {
         files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>,
     },
+    DbgDone,
     ParsingError(String),
     SkipCompileCard(OutputCompiledCardInfo),
     CompileError(OutputCompiledCardInfo),
