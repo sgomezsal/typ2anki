@@ -50,3 +50,4 @@ release:
 
 changelog:
     use: github
+    format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorUsername }})"

@@ -50,4 +50,3 @@ jobs:
                   args: release --clean --verbose
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  _VERSION: ${{ steps.get_version.outputs.version }}
