@@ -39,6 +39,20 @@ jobs:
                   else
                       echo "Tag v${{ steps.get_version.outputs.version }} does not exist, continuing"
                   fi
+
+            - name: Cargo Cache
+              uses: actions/cache@v4
+              id: cargo-cache-restore
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      ./typ2anki-rust/target
+                  key: ${{ runner.os }}-cargo-${{hashFiles('**/Cargo.toml')}}-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-
+                      ${{ runner.os }}-cargo-
+
             - name: Create Tag
               working-directory: ./typ2anki-rust
               run: |
@@ -59,18 +73,6 @@ jobs:
             - name: Install mingw-w64
               run: sudo apt-get install -y mingw-w64
 
-            - name: Cargo Cache
-              uses: actions/cache@v4
-              id: cargo-cache-restore
-              with:
-                  path: |
-                      ~/.cargo/registry
-                      ~/.cargo/git
-                      ./typ2anki-rust/target
-                  key: ${{ runner.os }}-cargo-${{hashFiles('**/Cargo.toml')}}-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-
-                      ${{ runner.os }}-cargo-
             - name: Run GoReleaser
               id: goreleaser
               uses: goreleaser/goreleaser-action@v6
