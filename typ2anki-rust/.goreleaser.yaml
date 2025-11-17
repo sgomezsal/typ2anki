@@ -38,7 +38,7 @@ archives:
 
 release:
     draft: true
-    use_existing_draft: true
+    replace_existing_draft: true
     replace_existing_artifacts: true
     target_commitish: "{{ .Commit }}"
     make_latest: true
@@ -50,4 +50,4 @@ release:
 
 changelog:
     use: github
-    format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorUsername }})"
+    format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorName }})"
