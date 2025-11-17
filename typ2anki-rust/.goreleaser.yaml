@@ -24,7 +24,7 @@ builds:
           - --locked
 
       hooks:
-          post: strip --strip-all {{ .Path }}
+          post: strip --strip-all {{ .Path }} || true
 
       skip: false
 archives:
