@@ -29,7 +29,7 @@ builds:
 archives:
     - id: typ2anki-archive
       meta: false
-      name_template: '{{.ProjectName}}-{{.Env.BUILD_VERSION}}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-{{ .Os }}-{{if contains .Target "gnu" }}gnu{{else if contains .Target "musl"}}musl{{else if contains .Target "msvc" }}msvc{{end}}'
+      name_template: '{{.ProjectName}}-v{{.Env.BUILD_VERSION}}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-{{ .Os }}-{{if contains .Target "gnu" }}gnu{{else if contains .Target "musl"}}musl{{else if contains .Target "msvc" }}msvc{{end}}'
       format_overrides:
           - goos: windows
             formats: ["zip"]
