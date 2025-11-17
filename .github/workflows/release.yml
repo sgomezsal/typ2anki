@@ -49,7 +49,10 @@ jobs:
                   curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
             - name: Install zigbuild
               run: |
-                  cargo binstall -y --locked cargo-zigbuild
+                  cargo binstall \
+                   -y --locked \
+                   --pkg-url="{ repo }/releases/download/v{ version }/{ name }-v{ version }.{ target }.{ archive-format }" \
+                   cargo-zigbuild
             - name: Install strip
               run: sudo apt-get install -y binutils
             - name: Run GoReleaser
