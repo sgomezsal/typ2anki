@@ -5,7 +5,8 @@ use serde_json::Value;
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::{fs, iter};
+use std::{fs, io, iter};
+use zip::ZipArchive;
 
 // Hashes the string as md5 hex digest
 pub fn hash_string(input: &str) -> String {
@@ -99,4 +100,29 @@ pub fn b64_encode<T: AsRef<[u8]>>(input: T) -> String {
 
 pub fn b64_decode(input: &str) -> Result<Vec<u8>, DecodeError> {
     STANDARD.decode(input)
+}
+
+pub fn unzip_file_to_dir(zip_path: &Path, dest_path: &Path) -> io::Result<()> {
+    let file = fs::File::open(zip_path)?;
+    let mut archive = ZipArchive::new(file)?;
+
+    fs::create_dir_all(dest_path)?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let outpath = dest_path.join(file.name());
+
+        if file.is_dir() {
+            fs::create_dir_all(&outpath)?;
+        } else {
+            if let Some(parent) = outpath.parent() {
+                fs::create_dir_all(parent)?;
+            }
+
+            let mut outfile = fs::File::create(&outpath)?;
+            io::copy(&mut file, &mut outfile)?;
+        }
+    }
+
+    Ok(())
 }

@@ -1,11 +1,13 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
-use clap::Parser;
+use clap::parser::ValueSource;
+use clap::{ArgAction, CommandFactory, FromArgMatches, Parser};
 use glob::Pattern;
 use once_cell::sync::OnceCell;
-use serde_json::json;
+use serde_json::{json, Value};
 use toml::Value as TomlValue;
 
 use html_escape::encode_double_quoted_attribute;
@@ -183,7 +185,8 @@ fn parse_generation_concurrency(s: &str) -> usize {
 }
 
 pub fn parse_config() -> Config {
-    let cli = Cli::parse();
+    let matches = Cli::command().get_matches();
+    let cli = Cli::from_arg_matches(&matches).unwrap();
 
     let asked_path = if cli.path.is_empty() {
         ".".to_string()
@@ -200,6 +203,34 @@ pub fn parse_config() -> Config {
     let mut generation_concurrency = parse_generation_concurrency(&cli.generation_concurrency);
     let mut recompile_on_config_change = cli.recompile_on_config_change.clone();
 
+    #[derive(Debug)]
+    enum ConfigSource {
+        Cli,
+        File,
+        Default,
+    }
+
+    let mut source_map: HashMap<&str, ConfigSource> = HashMap::new();
+    let c = &Cli::command();
+    c.get_arguments().for_each(|arg| {
+        let name = arg.get_id().as_str();
+        match matches.value_source(name) {
+            Some(ValueSource::CommandLine) | Some(ValueSource::EnvVariable) => {
+                source_map.insert(name, ConfigSource::Cli);
+            }
+            Some(ValueSource::DefaultValue) => {
+                source_map.insert(name, ConfigSource::Default);
+            }
+            None => {
+                // This branch seems to match for exclude_files and exclude_decks when not provided.
+                source_map.insert(name, ConfigSource::Default);
+            }
+            _ => {
+                println!("Unknown value source for arg {}", name);
+            }
+        }
+    });
+
     let mut path = get_real_path_simple(&asked_path);
     let is_zip = if path.to_lowercase().ends_with(".zip") {
         true
@@ -212,77 +243,84 @@ pub fn parse_config() -> Config {
             .expect("Failed to create temporary directory for zip extraction")
             .path()
             .to_path_buf();
-
+        utils::unzip_file_to_dir(&Path::new(&path), &dir).expect("Failed to extract zip file");
         path = dir.to_string_lossy().to_string();
     }
 
     if !cli.config_file.is_empty() {
         let config_file_path = Path::new(&path).join(&cli.config_file);
         if let Some(table) = load_toml_config(&config_file_path) {
-            if !check_duplicates {
+            if let Some(&ConfigSource::Default) = source_map.get("check_duplicates") {
                 if let Some(v) = table.get("check_duplicates") {
                     if let Some(b) = v.as_bool() {
                         check_duplicates = b;
+                        source_map.insert("check_duplicates", ConfigSource::File);
                     }
                 }
             }
-            if exclude_decks.is_empty() {
+            if let Some(&ConfigSource::Default) = source_map.get("exclude_decks") {
                 if let Some(v) = table.get("exclude_decks").and_then(|x| x.as_array()) {
                     exclude_decks = v
                         .iter()
                         .filter_map(|e| e.as_str().map(|s| s.to_string()))
                         .collect();
+                    source_map.insert("exclude_decks", ConfigSource::File);
                 }
             }
-            if exclude_files.is_empty() {
+            if let Some(&ConfigSource::Default) = source_map.get("exclude_files") {
                 if let Some(v) = table.get("exclude_files").and_then(|x| x.as_array()) {
                     exclude_files = v
                         .iter()
                         .filter_map(|e| e.as_str().map(|s| s.to_string()))
                         .collect();
+                    source_map.insert("exclude_files", ConfigSource::File);
                 }
             }
 
-            if !dry_run {
+            if let Some(&ConfigSource::Default) = source_map.get("dry_run") {
                 if let Some(v) = table.get("dry_run").and_then(|x| x.as_bool()) {
                     dry_run = v;
+                    source_map.insert("dry_run", ConfigSource::File);
                 }
             }
 
-            if max_card_width == "auto" {
+            if let Some(&ConfigSource::Default) = source_map.get("max_card_width") {
                 if let Some(v) = table.get("max_card_width").and_then(|x| x.as_str()) {
                     max_card_width = v.to_string();
+                    source_map.insert("max_card_width", ConfigSource::File);
                 }
             }
 
-            if table.get("check_checksums").is_some() && cli.no_cache {
-                // CLI --no-cache present; keep that (CLI precedence)
-            } else if cli.no_cache == false {
+            if let Some(&ConfigSource::Default) = source_map.get("no_cache") {
                 if let Some(v) = table.get("check_checksums").and_then(|x| x.as_bool()) {
                     skip_cache = v;
+                    source_map.insert("no_cache", ConfigSource::File);
                 }
             }
-            if generation_concurrency == 1 {
+            if let Some(&ConfigSource::Default) = source_map.get("generation_concurrency") {
                 if let Some(v) = table.get("generation_concurrency").and_then(|x| {
                     Some(parse_generation_concurrency(
                         x.as_str()
                             .unwrap_or(x.as_integer().unwrap_or(1).to_string().as_str()),
                     ))
                 }) {
-                    generation_concurrency = v.max(1) as usize;
+                    generation_concurrency = v;
+                    source_map.insert("generation_concurrency", ConfigSource::File);
                 }
             }
 
-            if recompile_on_config_change == "_" {
+            if let Some(&ConfigSource::Default) = source_map.get("recompile_on_config_change") {
                 if let Some(v) = table
                     .get("recompile_on_config_change")
                     .and_then(|x| x.as_str())
                 {
                     recompile_on_config_change = v.to_string();
+                    source_map.insert("recompile_on_config_change", ConfigSource::File);
                 }
             }
         }
     }
+    // println!("Config sources: {:#?}", source_map);
 
     let mut typst_input: Vec<(String, String)> = Vec::new();
     typst_input.push(("typ2anki_compile".to_string(), "1".to_string()));
@@ -297,6 +335,62 @@ pub fn parse_config() -> Config {
     } else if generation_concurrency > num_cpus::get() {
         eprintln!("WARNING: Requested generation concurrency ({}) exceeds number of CPU cores ({}). It is inefficient. Reducing to {}. You can set generation-concurrency to 'max' so that it always takes the amount of logical threads on a given machine.", generation_concurrency, num_cpus::get(), num_cpus::get());
         generation_concurrency = num_cpus::get();
+    }
+
+    if cli.print_config {
+        let c = Cli::command();
+        let mut options: Vec<serde_json::Value> = Vec::new();
+        let hidden_args: Vec<String> = (vec!["config_file", "path", "print_config"])
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        c.get_arguments().for_each(|arg| {
+            let id = arg.get_id().as_str();
+            if hidden_args.iter().any(|s| s == id) {
+                return;
+            }
+            let source = match source_map.get(id).unwrap() {
+                ConfigSource::Default => 0,
+                ConfigSource::Cli => 1,
+                ConfigSource::File => 2,
+            };
+            let cli_name = format!(
+                "--{}",
+                arg.get_long()
+                    .map(|s| s.to_string())
+                    .or(arg.get_short().map(|c| c.to_string()))
+                    .unwrap()
+            );
+            let help = arg.get_help().unwrap().to_string();
+            let value: Value = match id {
+                "check_duplicates" => json!(check_duplicates),
+                "exclude_decks" => json!(exclude_decks),
+                "exclude_files" => json!(exclude_files),
+                "dry_run" => json!(dry_run),
+                "max_card_width" => json!(max_card_width),
+                "no_cache" => json!(skip_cache),
+                "generation_concurrency" => json!(generation_concurrency),
+                "recompile_on_config_change" => json!(recompile_on_config_change),
+                _ => json!(null),
+            };
+            let t = match arg.get_action() {
+                ArgAction::SetTrue => "store_true".to_string(),
+                ArgAction::Append => "append".to_string(),
+                ArgAction::Set => "str".to_string(),
+                other => format!("{:?}", other),
+            };
+            options.push(json!({
+                "id": id,
+                "source": source,
+                "cli_name": cli_name,
+                "help": help,
+                "type": t,
+                "value":value,
+            }))
+        });
+        let output = json!({ "options": options });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        std::process::exit(1);
     }
 
     let mut cfg = Config {
