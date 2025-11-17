@@ -50,3 +50,6 @@ jobs:
                   args: release --clean --verbose
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - uses: actions/attest-build-provenance@v3
+              with:
+                  subject-checksums: ./typ2anki-rust/goreleaser-dist/checksums.txt

@@ -44,10 +44,11 @@ release:
     make_latest: true
     mode: replace
     name_template: "Typ2Anki {{ .Tag }}"
-    header: |
-        # Typ2Anki Release {{ .Tag }}
+    footer: "Artifacts built automatically by GoReleaser"
     include_meta: true
 
 changelog:
     use: github
     format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorName }})"
+checksum:
+    name_template: "checksums.txt"
