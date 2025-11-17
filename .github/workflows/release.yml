@@ -42,6 +42,16 @@ jobs:
               working-directory: ./typ2anki-rust
               run: |
                   git tag "v${{ steps.get_version.outputs.version }}"
+            - name: Set up Zig
+              uses: mlugg/setup-zig@v2
+            - name: Install cargo-binstall
+              run: |
+                  curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+            - name: Install zigbuild
+              run: |
+                  cargo binstall -y --locked cargo-zigbuild
+            - name: Install strip
+              run: sudo apt-get install -y binutils
             - name: Run GoReleaser
               uses: goreleaser/goreleaser-action@v6
               with:
