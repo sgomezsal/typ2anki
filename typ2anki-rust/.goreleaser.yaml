@@ -24,7 +24,9 @@ builds:
           - --locked
 
       hooks:
-          post: strip --strip-all {{ .Path }} || true
+          post:
+              - cmd: ./releaser-strip.sh {{ .Path }}
+                output: true
 
       skip: false
 archives:

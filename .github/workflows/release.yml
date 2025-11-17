@@ -84,3 +84,6 @@ jobs:
                   restore-keys: |
                       ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-
                       ${{ runner.os }}-cargo-
+            - name: Fail if GoReleaser failed
+              if: steps.goreleaser.outcome != 'success'
+              run: exit 1
