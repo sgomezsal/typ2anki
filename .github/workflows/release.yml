@@ -57,6 +57,17 @@ jobs:
               run: sudo apt-get install -y binutils
             - name: Install mingw-w64
               run: sudo apt-get install -y mingw-w64
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      ./typ2anki-rust/target
+                  key: ${{ runner.os }}-cargo-${{hashFiles('**/Cargo.toml')}}-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-
+                      ${{ runner.os }}-cargo-
             - name: Run GoReleaser
               id: goreleaser
               uses: goreleaser/goreleaser-action@v6
@@ -73,17 +84,6 @@ jobs:
               if: steps.goreleaser.outcome == 'success'
               with:
                   subject-checksums: ./typ2anki-rust/goreleaser-dist/checksums.txt
-            - name: Cache
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.cargo/registry
-                      ~/.cargo/git
-                      ./typ2anki-rust/target
-                  key: ${{ runner.os }}-cargo-${{hashFiles('**/Cargo.toml')}}-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-
-                      ${{ runner.os }}-cargo-
             - name: Fail if GoReleaser failed
               if: steps.goreleaser.outcome != 'success'
               run: exit 1
