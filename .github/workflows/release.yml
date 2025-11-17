@@ -57,9 +57,10 @@ jobs:
               run: sudo apt-get install -y binutils
             - name: Install mingw-w64
               run: sudo apt-get install -y mingw-w64
-            - name: Cache
+
+            - name: Cargo Cache
               uses: actions/cache@v4
-              if: always()
+              id: cargo-cache-restore
               with:
                   path: |
                       ~/.cargo/registry
@@ -83,3 +84,14 @@ jobs:
               continue-on-error: true
               with:
                   subject-checksums: ./typ2anki-rust/goreleaser-dist/checksums.txt
+
+            - name: Always Save Cargo Cache
+              id: cargo-cache-save
+              if: always() && steps.cargo-cache-restore.outputs.cache-hit != 'true'
+              uses: actions/cache/save@v4
+              with:
+                  key: ${{ steps.cargo-cache-restore.outputs.cache-primary-key }}
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      ./typ2anki-rust/target
