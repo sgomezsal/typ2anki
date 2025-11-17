@@ -3,7 +3,7 @@ version: 2
 dist: goreleaser-dist
 project_name: typ2anki
 env:
-    - BUILD_VERSION={{ if index .Env "_VERSION"  }}{{ .Env._VERSION }}{{ else }}DEV{{ end }}
+    - BUILD_VERSION={{ if index .Env "_VERSION"  }}{{ .Env._VERSION }}{{ else }}{{ .Version }}{{ end }}
 builds:
     - id: typ2anki
       builder: rust
