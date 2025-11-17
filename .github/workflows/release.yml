@@ -30,6 +30,7 @@ jobs:
                   echo "version=$v" >> $GITHUB_OUTPUT
             - name: Check that tag does not exist
               working-directory: ./typ2anki-rust
+              id: check_tag
               run: |
                   if git rev-parse "refs/tags/v${{ steps.get_version.outputs.version }}" >/dev/null 2>&1
                   then
@@ -87,7 +88,7 @@ jobs:
 
             - name: Always Save Cargo Cache
               id: cargo-cache-save
-              if: always() && steps.cargo-cache-restore.outputs.cache-hit != 'true'
+              if: always() && steps.cargo-cache-restore.outputs.cache-hit != 'true' && steps.check_tag.outcome == 'success'
               uses: actions/cache/save@v4
               with:
                   key: ${{ steps.cargo-cache-restore.outputs.cache-primary-key }}
