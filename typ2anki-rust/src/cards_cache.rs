@@ -33,7 +33,7 @@ impl CardsCacheManager {
             hash_string(format!("{}{}", ankiconf_hash, cfg.config_hash.as_ref().unwrap()).as_str());
         let cache: HashMap<String, String>;
 
-        if !cfg.check_checksums {
+        if cfg.skip_cache {
             cache = HashMap::new();
         } else {
             let s = anki_api::get_cards_cache_string().unwrap_or("{}".to_string());
@@ -63,7 +63,7 @@ impl CardsCacheManager {
 
     pub fn detect_configuration_change(&mut self, output: &impl OutputManager) {
         let cfg = config::get();
-        if !cfg.check_checksums {
+        if cfg.skip_cache {
             return;
         }
 
@@ -97,6 +97,10 @@ impl CardsCacheManager {
     }
 
     pub fn save_cache(&self, output: &impl OutputManager) {
+        let cfg = config::get();
+        if cfg.dry_run || cfg.skip_cache {
+            return;
+        }
         let push: HashMap<String, String> = self
             .old_cache
             .clone()

@@ -84,19 +84,22 @@ pub fn compile_cards(
     let mut ra: Range<usize> = 0..0;
 
     let card_error = |card: &CardInfo, m: OutputMessage| {
-        output.send(m);
         let mut cache_manager = cache_manager.lock().unwrap();
         cache_manager.remove_card_hash(card.deck_name.as_str(), &card.card_id);
 
-        let mut file_stats = file_stats.lock().unwrap();
-        if let Some(stats) = file_stats.get_mut(&card.source_file) {
-            match card.modification_status {
-                CardModificationStatus::New => stats.new_cards.1 += 1,
-                CardModificationStatus::Updated => stats.updated_cards.1 += 1,
-                CardModificationStatus::Unchanged => stats.unchanged_cards.1 += 1,
-                CardModificationStatus::Unknown => {}
+        {
+            let mut file_stats = file_stats.lock().unwrap();
+            if let Some(stats) = file_stats.get_mut(&card.source_file) {
+                match card.modification_status {
+                    CardModificationStatus::New => stats.new_cards.1 += 1,
+                    CardModificationStatus::Updated => stats.updated_cards.1 += 1,
+                    CardModificationStatus::Unchanged => stats.unchanged_cards.1 += 1,
+                    CardModificationStatus::Unknown => {}
+                }
             }
         }
+
+        output.send(m);
     };
 
     for card in cards {

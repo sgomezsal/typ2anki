@@ -13,6 +13,7 @@ pub struct OutputConsole {
     multi: Arc<MultiProgress>,
     bars: Arc<Mutex<HashMap<String, ProgressBar>>>,
     bars_visible: Arc<Mutex<bool>>,
+    files: Mutex<Option<Arc<Mutex<HashMap<PathBuf, TypFileStats>>>>>,
 }
 
 const PROGRESS_BAR_LENGTH: u64 = 40;
@@ -23,10 +24,14 @@ impl OutputConsole {
             multi: Arc::new(MultiProgress::new()),
             bars: Arc::new(Mutex::new(HashMap::new())),
             bars_visible: Arc::new(Mutex::new(false)),
+            files: Mutex::new(None),
         }
     }
 
     fn create_progress_bars(&self, files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>) {
+        let mut stored_files = self.files.lock().unwrap();
+        *stored_files = Some(files.clone());
+
         let files = files.lock().unwrap();
         {
             let mut visible = self.bars_visible.lock().unwrap();
@@ -36,9 +41,16 @@ impl OutputConsole {
         let mut bars = self.bars.lock().unwrap();
 
         let cfg = config::get();
-        let filenames: Vec<String> = files
-            .keys()
-            .map(|path| {
+
+        let files_sorted: Vec<(&PathBuf, &TypFileStats)> = {
+            let mut v: Vec<(&PathBuf, &TypFileStats)> = files.iter().collect();
+            v.sort_by_key(|(path, _)| path.to_string_lossy().to_string());
+            v
+        };
+
+        let filenames: Vec<String> = files_sorted
+            .iter()
+            .map(|(path, _)| {
                 path.strip_prefix(&cfg.path)
                     .unwrap_or(&path)
                     .to_string_lossy()
@@ -47,26 +59,62 @@ impl OutputConsole {
             .collect();
 
         let longest_path = filenames.iter().map(|p| p.len()).max().unwrap_or(20) as u64;
+        let longest_count = files
+            .values()
+            .map(|stats| stats.total_cards)
+            .max()
+            .unwrap_or(0) as u64;
+        let longest_count = longest_count.to_string().len() as u64;
 
-        for ((path, stats), filename) in files.iter().zip(filenames.iter()) {
-            println!("{}", stats.stats_colored());
-            let pb = self.create_progress_bar(filename, longest_path + 1, stats.total_cards as u64);
+        // Create a total progress bar
+        {
+            let total_cards: u64 = files.values().map(|s| s.total_cards as u64).sum();
+            let longest_pos = total_cards.to_string().len() as u64;
+
+            let pb = self.multi.add(ProgressBar::new(total_cards));
+            let format = format!(
+                "{{prefix}} [{{wide_bar:.red/green}}] {{pos:>{}}}/{{len:<{}}} {{per_sec:<2}} ETA: {{eta}}",
+                longest_pos, longest_pos
+            );
+            pb.set_style(
+                ProgressStyle::with_template(format.as_str())
+                    .unwrap()
+                    .progress_chars("##-"),
+            );
+            pb.set_prefix("All:");
+            bars.insert("all".to_string(), pb);
+        }
+
+        for ((path, stats), filename) in files_sorted.iter().zip(filenames.iter()) {
+            let pb = self.create_progress_bar(
+                filename,
+                longest_path + 1,
+                longest_count,
+                stats.total_cards as u64,
+            );
             bars.insert(path.to_string_lossy().to_string(), pb);
         }
     }
 
-    fn create_progress_bar(&self, file_name: &str, msg_length: u64, len: u64) -> ProgressBar {
+    fn create_progress_bar(
+        &self,
+        file_name: &str,
+        prefix_length: u64,
+        longest_pos: u64,
+        len: u64,
+    ) -> ProgressBar {
         let pb = self.multi.add(ProgressBar::new(len));
         let format = format!(
-            "{{msg:{}}} [{{bar:{}.cyan/blue}}] {{pos}}/{{len}}",
-            msg_length, PROGRESS_BAR_LENGTH
+            "{{prefix:{}}} [{{bar:{}.cyan/blue}}] {{pos:>{}}}/{{len:<{}}} {{msg}}",
+            prefix_length, PROGRESS_BAR_LENGTH, longest_pos, longest_pos
         );
         pb.set_style(
             ProgressStyle::with_template(format.as_str())
                 .unwrap()
                 .progress_chars("=>-"),
         );
-        pb.set_message(file_name.to_string());
+        pb.set_prefix(file_name.to_string());
+        pb.set_message("");
         pb
     }
 
@@ -74,6 +122,17 @@ impl OutputConsole {
         let bars = self.bars.lock().unwrap();
         if let Some(pb) = bars.get(file_name) {
             pb.inc(inc);
+            if pb.position() >= pb.length().unwrap_or(0) {
+                let stored_files = self.files.lock().unwrap();
+                let stored_files = stored_files.as_ref().unwrap().lock().unwrap();
+                let stats = stored_files
+                    .iter()
+                    .find(|(path, _)| path.to_string_lossy() == *file_name)
+                    .map(|(_, stats)| stats)
+                    .unwrap();
+                pb.finish_with_message(stats.stats_colored());
+            }
+            bars.get("all").unwrap().inc(inc);
         }
     }
 
@@ -97,9 +156,19 @@ impl OutputConsole {
 
     fn finish_all_bars(&self, files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>) {
         let bars = self.bars.lock().unwrap();
-        for pb in bars.values() {
+        let files = files.lock().unwrap();
+        for (file, pb) in bars.iter() {
             if !pb.is_finished() {
-                pb.finish();
+                if file == "all" {
+                    pb.finish();
+                    continue;
+                }
+                let stats = files
+                    .iter()
+                    .find(|(path, _)| path.to_string_lossy() == *file)
+                    .map(|(_, stats)| stats)
+                    .unwrap();
+                pb.finish_with_message(stats.stats_colored());
             }
         }
         {

@@ -97,7 +97,7 @@ pub struct Config {
     // Processed options / defaults
     pub dry_run: bool,
     pub max_card_width: String,
-    pub check_checksums: bool,
+    pub skip_cache: bool,
     pub generation_concurrency: usize,
 
     // Internal options
@@ -187,7 +187,7 @@ pub fn parse_config() -> Config {
     let mut exclude_files = cli.exclude_files.clone();
     let mut dry_run = cli.dry_run;
     let mut max_card_width = cli.max_card_width.clone();
-    let mut check_checksums = !cli.no_cache;
+    let mut skip_cache = cli.no_cache;
     let mut generation_concurrency = parse_generation_concurrency(&cli.generation_concurrency);
     let mut recompile_on_config_change = cli.recompile_on_config_change.clone();
 
@@ -245,7 +245,7 @@ pub fn parse_config() -> Config {
                 // CLI --no-cache present; keep that (CLI precedence)
             } else if cli.no_cache == false {
                 if let Some(v) = table.get("check_checksums").and_then(|x| x.as_bool()) {
-                    check_checksums = v;
+                    skip_cache = v;
                 }
             }
             if generation_concurrency == 1 {
@@ -309,7 +309,7 @@ pub fn parse_config() -> Config {
         ),
         dry_run,
         max_card_width,
-        check_checksums,
+        skip_cache,
         generation_concurrency,
         is_zip,
         config_hash: None,

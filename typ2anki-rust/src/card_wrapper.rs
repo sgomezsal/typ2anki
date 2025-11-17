@@ -14,12 +14,34 @@ pub enum CardModificationStatus {
 
 type CardCountPair = (usize, usize); // (total count, errors)
 
-fn card_pair_status((total, errors): &CardCountPair) -> String {
-    if *errors == 1 {
-        format!("{}", total.to_string())
-    } else {
-        format!("{}/{}", (total - errors).to_string().red(), total)
+fn card_pair_status(
+    symbol: &str,
+    color: fn(s: &str) -> ColoredString,
+    (total, errors): &CardCountPair,
+) -> String {
+    if *total == 0 {
+        return format!("{}{:0>2}", symbol.bright_black(), "0".bright_black());
     }
+    let symbol = color(symbol);
+    if *errors == 0 {
+        format!("{}{:0>2}", symbol, color(total.to_string().as_str()))
+    } else {
+        format!(
+            "{}{:0>2}{}{:0>2}",
+            symbol,
+            (total - errors).to_string().red(),
+            "/".bright_black(),
+            color(total.to_string().as_str())
+        )
+    }
+}
+
+fn card_single_status(symbol: &str, color: fn(s: &str) -> ColoredString, count: usize) -> String {
+    if count == 0 {
+        return format!("{}{:0>2}", symbol.bright_black(), "0".bright_black());
+    }
+    let symbol = color(symbol);
+    format!("{}{:0>2}", symbol, color(count.to_string().as_str()))
 }
 
 #[derive(Debug, Clone)]
@@ -44,21 +66,30 @@ impl TypFileStats {
         }
     }
 
-    #[allow(dead_code)]
     pub fn total_errors(&self) -> usize {
         self.new_cards.1 + self.updated_cards.1 + self.unchanged_cards.1
     }
 
     pub fn stats_colored(&self) -> String {
-        let separator = " | ".white();
+        let separator = "|".bright_black();
         format!(
-            "{}{}{}{}{}{}",
-            "+".green(),
-            card_pair_status(&self.new_cards).green(),
+            "{}{}{}{}{}{}{}{}",
+            card_pair_status("+", |s| s.green(), &self.new_cards),
             separator,
-            "↑".green(),
-            card_pair_status(&self.updated_cards).yellow(),
+            card_pair_status("↑", |s| s.green(), &self.updated_cards),
             separator,
+            card_single_status("☓", |s| s.red(), self.total_errors()),
+            separator,
+            card_pair_status("↷", |s| s.white(), &self.unchanged_cards),
+            if self.empty_cards > 0 {
+                format!(
+                    "{}{}",
+                    separator,
+                    card_single_status("∅", |s| s.blue(), self.empty_cards)
+                )
+            } else {
+                "".to_string()
+            }
         )
     }
 }

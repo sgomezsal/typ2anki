@@ -54,6 +54,9 @@ pub fn parse_cards_string(content: &str) -> Vec<String> {
     let mut i: usize = 0;
     let len = content.len();
 
+    let mut current_prelude = String::new();
+    let mut prelude_started = false;
+
     while i < len {
         if !inside_card {
             if card_types.iter().any(|ct| content[i..].starts_with(ct)) {
@@ -69,10 +72,23 @@ pub fn parse_cards_string(content: &str) -> Vec<String> {
                 }
                 continue;
             }
+
+            if !prelude_started {
+                if content[i..].starts_with("//START") || content[i..].starts_with("//start") {
+                    prelude_started = true;
+                    i += "//START".len();
+                    continue;
+                } else if content[i..].starts_with("// START")
+                    || content[i..].starts_with("// start")
+                {
+                    prelude_started = true;
+                    i += "// START".len();
+                    continue;
+                }
+            }
         }
 
         if inside_card {
-            // get next char safely and advance by its byte length
             let ch = content[i..].chars().next().unwrap();
             current_card.push(ch);
             if ch == '(' {
@@ -83,15 +99,26 @@ pub fn parse_cards_string(content: &str) -> Vec<String> {
             i += ch.len_utf8();
 
             if balance == 0 {
-                results.push(current_card.trim().to_string());
+                results.push(format!(
+                    "{}\n{}",
+                    current_prelude.trim(),
+                    current_card.trim()
+                ));
                 inside_card = false;
                 current_card.clear();
             }
             continue;
         }
 
-        // not inside a card and no start matched: advance one char
+        // Not inside a card and prelude only tracked after marker found
         let ch = content[i..].chars().next().unwrap();
+        if prelude_started {
+            if ch == '\n' && current_prelude.ends_with('\n') {
+                // skip duplicate new line``
+            } else {
+                current_prelude.push(ch);
+            }
+        }
         i += ch.len_utf8();
     }
 

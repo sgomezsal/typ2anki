@@ -271,6 +271,9 @@ impl CardUploaderThread {
         back_data_base64: &String,
     ) -> Result<(), String> {
         let cfg = config::get();
+        if cfg.dry_run {
+            return Ok(());
+        }
         self.upload_file(card.image_path(1), front_data_base64)?;
         self.upload_file(card.image_path(2), back_data_base64)?;
 
