@@ -26,7 +26,8 @@ jobs:
               id: get_version
               working-directory: ./typ2anki-rust
               run: |
-                  cargo metadata --no-deps --format-version 1 | jq -r ".packages[0].version"
+                  v=$(cargo metadata --no-deps --format-version 1 | jq -r ".packages[0].version")
+                  echo "version=$v\n" >> $GITHUB_OUTPUT
             - name: Check that tag does not exist
               working-directory: ./typ2anki-rust
               run: |
@@ -53,3 +54,11 @@ jobs:
             - uses: actions/attest-build-provenance@v3
               with:
                   subject-checksums: ./typ2anki-rust/goreleaser-dist/checksums.txt
+            - name: Cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      ./typ2anki-rust/target
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
