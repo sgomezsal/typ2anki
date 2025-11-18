@@ -69,11 +69,25 @@ def call_typ2anki_cli(params: list[str], showUser: bool):
         return result
 
 
-def detect_terminal():
-    terminals = [ "wezterm","alacritty", "kitty","gnome-terminal", "konsole", "xterm", "terminator", "xfce4-terminal", "lxterminal", "terminology", "tilix",  "foot", "urxvt", ]  # fmt: skip
+def detect_terminal() -> Optional[list[str]]:
+    terminals = [
+        ["wezterm", "start", "--"],
+        ["alacritty", "-e"],
+        ["kitty", "-e"],
+        ["gnome-terminal", "--"],
+        ["konsole", "-e"],
+        ["xterm", "-e"],
+        ["terminator", "-e"],
+        ["xfce4-terminal", "--command"],
+        ["lxterminal", "-e"],
+        ["terminology", "-e"],
+        ["tilix", "-e"],
+        ["foot", "-e"],
+        ["urxvt", "-e"],
+    ]
     for term in terminals:
-        if shutil.which(term):
-            return term
+        if shutil.which(term[0] if isinstance(term, list) else term):
+            return term if isinstance(term, list) else [term]
     return None
 
 
@@ -135,7 +149,7 @@ def openBackendSetup() -> None:
     def setup_backend():
         terminal = detect_terminal()
         if terminal:
-            a = [terminal, "-e", "python", ADDON_DIR + "/detect_backend.py"]
+            a = terminal + ["python", ADDON_DIR + "/detect_backend.py"]
             subprocess.Popen(a)
         else:
             showInfo(
@@ -387,14 +401,12 @@ def show_config_dialog(config: "Config", file_path: str):
 
     terminal = detect_terminal()
     if terminal:
-        terminal_button = qt.QPushButton(f"Open in {terminal}")
+        terminal_button = qt.QPushButton(f"Open in {terminal[0]}")
 
         def terminal_button_click():
             if not BACKEND_PATH:
                 raise ValueError("BACKEND_PATH is not set")
-            a = [
-                terminal,
-                "-e",
+            a = terminal + [
                 BACKEND_PATH,
                 "-i",
                 *generate_command_params(),
