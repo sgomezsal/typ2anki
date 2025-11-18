@@ -51,7 +51,7 @@ release:
     include_meta: true
 
 changelog:
-    use: github
+    use: git
     format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorName }})"
 checksum:
     name_template: "checksums.txt"
