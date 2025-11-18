@@ -23,7 +23,7 @@ builds:
           #   - aarch64-apple-darwin
       flags:
           - --release
-          # - --locked
+          - --locked
 
       hooks:
           post:

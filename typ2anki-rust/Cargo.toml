@@ -1,6 +1,6 @@
 [package]
 name = "typ2anki"
-version = "0.1.2"
+version = "1.0.0"
 categories = ["visualization"]
 edition = "2024"
 homepage = "https://github.com/sgomezsal/typ2anki"
@@ -48,5 +48,5 @@ indicatif = "0.18.3"
 num_cpus = "1.17.0"
 tempfile = "3.23.0"
 walkdir = "2.5.0"
-zune-inflate = { version = "0.2.54", default-features = false, features = ["gzip", "std"] }
 zip = "6.0.0"
+zune-inflate = { version = "0.2.54", default-features = false, features = ["gzip", "std"] }
