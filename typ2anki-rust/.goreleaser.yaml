@@ -13,11 +13,11 @@ builds:
       # Default: [ "x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin" ]
       targets:
           - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-          - aarch64-unknown-linux-musl
+          #   - x86_64-unknown-linux-musl
+          #   - aarch64-unknown-linux-musl
+          #   - x86_64-pc-windows-gnu
           #   - x86_64-apple-darwin
           #   - aarch64-apple-darwin
-          - x86_64-pc-windows-gnu
       flags:
           - --release
           # - --locked
@@ -49,7 +49,7 @@ release:
     footer: "Artifacts built automatically by GoReleaser"
     include_meta: true
     extra_files:
-        - glob: "typ2anki.ankiaddon"
+        - glob: "../typ2anki.ankiaddon"
 changelog:
     use: git
     format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorName }})"

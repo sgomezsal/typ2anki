@@ -80,7 +80,6 @@ jobs:
               continue-on-error: true
               run: |
                   ./bundle-ankiaddon.sh
-                  mv typ2anki.ankiaddon ./typ2anki-rust/typ2anki.ankiaddon
               env:
                   _VERSION: "${{ steps.get_version.outputs.version }}"
 
