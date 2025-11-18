@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 
 ADDON_DIR = str(pathlib.Path(__file__).parent.resolve())
-REPO = "itsvyle/typ2anki"
+REPO = "sgomezsal/typ2anki"
 EXECUTABLE_NAME = "typ2anki"
 if os.name == "nt":
     EXECUTABLE_NAME += ".exe"
@@ -247,14 +247,14 @@ def check_backend(download: bool) -> Optional[str] | tuple[Optional[str], str]:
         if not cargo_binstall_installed:
             return (executable_path, "cargo-binstall not found.")
         print("Updating via cargo-binstall...")
-        print("Run: cargo binstall -y itsvyle/typ2anki")
+        print("Run: cargo binstall -y typ2anki")
         try:
             subprocess.run(
                 [
                     "cargo",
                     "binstall",
                     "-y",
-                    "itsvyle/typ2anki",
+                    "typ2anki",
                 ],
                 check=True,
             )
