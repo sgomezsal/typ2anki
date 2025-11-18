@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=/home/gm/.config/goreleaser-schema.json
+version: 2
+dist: goreleaser-dist
+project_name: typ2anki
+env:
+    - BUILD_VERSION={{ if index .Env "_VERSION"  }}{{ .Env._VERSION }}{{ else }}{{ .Version }}{{ end }}
+before:
+    hooks:
+        - ./releaser-before.sh
+builds:
+    - id: typ2anki
+      builder: rust
+      binary: typ2anki
+      #   no_unique_dist_dir: true
+      # List of targets to be built, in Rust's format.
+      # Default: [ "x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin" ]
+      targets:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+          - x86_64-pc-windows-gnu
+          #   - x86_64-apple-darwin
+          #   - aarch64-apple-darwin
+      flags:
+          - --release
+          - --locked
+
+      hooks:
+          post:
+              - cmd: ./releaser-strip.sh {{ .Path }}
+                output: true
+
+      skip: false
+archives:
+    - id: typ2anki-archive
+      meta: false
+      name_template: '{{.ProjectName}}-v{{.Env.BUILD_VERSION}}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-{{ .Os }}-{{if contains .Target "gnu" }}gnu{{else if contains .Target "musl"}}musl{{else if contains .Target "msvc" }}msvc{{end}}'
+      format_overrides:
+          - goos: windows
+            formats: ["zip"]
+      allow_different_binary_count: true
+      strip_binary_directory: true
+release:
+    draft: true
+    replace_existing_draft: true
+    replace_existing_artifacts: true
+    target_commitish: "{{ .Commit }}"
+    make_latest: true
+    mode: replace
+    name_template: "Typ2Anki {{ .Tag }}"
+    footer: "Artifacts built automatically by GoReleaser"
+    include_meta: true
+    extra_files:
+        - glob: "typ2anki.ankiaddon"
+changelog:
+    use: git
+    format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorName }})"
+checksum:
+    name_template: "checksums.txt"

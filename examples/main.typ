@@ -5,14 +5,14 @@
   id: "",
   q: "",
   a: "",
-  ..args
+  ..args,
 ) = {
   card(
     id: id,
     q: q,
     a: a,
     container: true,
-    show-labels: true
+    show-labels: true,
   )
 }
 
@@ -85,6 +85,7 @@
 
 #custom-card(
   id: "20241226123512",
+  target-deck: "CS",
   q: "How is a conclusion derived from labeled premises in this rule structure?",
   a: [
     #let tree = rule(
@@ -93,7 +94,7 @@
       [Conclusion],
       [Premise 1],
       [Premise 2],
-      [Premise 3]
+      [Premise 3],
     )
     #proof-tree(tree)
   ],

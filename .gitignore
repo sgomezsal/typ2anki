@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.mypy_cache/
 
 # Virtual Environment
 venv/
@@ -54,3 +55,4 @@ meta.json
 typ2anki.ankiaddon.temp
 *.ankiaddon
 ankiaddon/python_exec.txt
+user_files

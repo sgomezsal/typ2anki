@@ -24,7 +24,7 @@
 1. **[Installation and Configuration](#installation-and-configuration)**
 
    - [Installing AnkiConnect](#installing-ankiconnect)
-   - [Installing the Python Package](#installing-the-python-package)
+   - [Installing the Rust](#installing-the-rust-package)
    - [Installing the Typst Package](#installing-the-typst-package)
 
 2. **[Usage](#usage)**
@@ -65,14 +65,16 @@
 
 ---
 
-### Installing the Python Package
+### Installing the Rust Package
 
-1. Make sure Python 3.8+ is installed on your system.
-2. Install the Typ2Anki package using pip:
+1. Install Rust and Cargo by following the instructions at [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install).
+2. Install the Typ2Anki package using cargo
 
-   ```bash
-   pip install typ2anki
-   ```
+> [!Note] It is recommended to get [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) for faster installation, as the build process of typ2anki can take some time.
+
+```bash
+cargo binstall typ2anki --locked || cargo install typ2anki --locked
+```
 
 3. Verify the installation:
 
@@ -101,7 +103,56 @@ nix run github:sgomezsal/typ2anki
    #import "@preview/typ2anki:0.1.0": *
    ```
 
-#### Method 2: Manual Installation
+#### Method 2: Using the Rust Package
+
+1. After installing the Rust package, you can run the following command to set up the Typst package:
+
+   ```bash
+   typ2anki --install-typst-pkg
+   ```
+
+2. Navigate to your flashcards directory:
+
+   ```bash
+   cd ~/Documents/Flashcards/  # or your preferred location
+   ```
+
+3. Create your `ankiconf.typ` file with basic configurations:
+
+   ```typst
+   // Custom imports for flashcards
+   #import "@local/typ2anki:0.1.0": *
+   #import "@preview/pkgs"
+
+   #let conf(
+     doc,
+   ) = {
+     // Custom configurations
+     doc
+   }
+   ```
+
+4. Create a new Typst document (e.g., `main.typ`):
+
+   ```typst
+   #import "ankiconf.typ": *
+   #show: doc => conf(doc)
+
+   #card(
+     id: "001",
+     target-deck: "Target-Deck",
+     q: "Question",
+     a: "Answer"
+   )
+   ```
+
+5. Run typ2anki in your project directory:
+
+   ```bash
+   typ2anki .
+   ```
+
+#### Method 3: Manual Installation
 
 If you encounter issues with the package import, you can set up the package manually:
 
@@ -174,6 +225,9 @@ If you encounter issues with the package import, you can set up the package manu
 1. Create a Typst file with flashcards:
 
    ```typst
+   #import "ankiconf.typ": *
+   #show: doc => conf(doc)
+
    #card(
      id: "001",
      target-deck: "Typst",
@@ -192,9 +246,11 @@ If you encounter issues with the package import, you can set up the package manu
    #let conf(
      doc,
    ) = {
-     // Custom configurations
+     // Custom configurations that will run on the document
      doc
    }
+
+   // Any other global variables or settings can go here - they will be accessible in all cards
    ```
 
 3. Use Typ2Anki to compile all files in the project directory:
@@ -266,6 +322,7 @@ To modify card appearance, you can define custom card logic:
 1. **Command to Delete Cards**: Implement a feature to remove specific cards from Anki.
 2. **Efficiency Improvements**: Optimize the syncing process for speed and reliability.
 3. **Support for Other Card Types**: Expand compatibility to include more complex card formats.
+4. **Support to use what's previously been set in the file**: Allow using context from the file, and not just `ankiconf.typ`
 
 ---
 
