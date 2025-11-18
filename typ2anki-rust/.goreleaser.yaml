@@ -21,7 +21,7 @@ builds:
 
       flags:
           - --release
-          - --locked
+          # - --locked
 
       hooks:
           post:
