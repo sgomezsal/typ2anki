@@ -226,7 +226,7 @@ pub fn parse_config() -> Config {
                 source_map.insert(name, ConfigSource::Default);
             }
             _ => {
-                println!("Unknown value source for arg {}", name);
+                eprintln!("Unknown value source for arg {}", name);
             }
         }
     });
@@ -390,7 +390,7 @@ pub fn parse_config() -> Config {
         });
         let output = json!({ "options": options });
         println!("{}", serde_json::to_string_pretty(&output).unwrap());
-        std::process::exit(1);
+        std::process::exit(0);
     }
 
     let mut cfg = Config {
