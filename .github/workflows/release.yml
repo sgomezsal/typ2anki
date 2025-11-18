@@ -97,4 +97,4 @@ jobs:
                       ~/.cargo/registry
                       ~/.cargo/git
                       ./typ2anki-rust/target
-                  key: ${{ runner.os }}-cargo-${{hashFiles('**/Cargo.toml')}}-${{ hashFiles('**/Cargo.lock') }}
+                  key: "${{ steps.cargo-cache-restore.outputs.cache-primary-key }}"
