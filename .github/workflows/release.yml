@@ -97,4 +97,4 @@ jobs:
                       ~/.cargo/registry
                       ~/.cargo/git
                       ./typ2anki-rust/target
-                  key: ${{ steps.cargo-cache-restore.outputs.cache-primary-key }}
+                  key: "${{ steps.cargo-cache-restore.outputs.cache-primary-key }}"
