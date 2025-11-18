@@ -64,6 +64,9 @@ struct Cli {
     /// Path to Typst documents folder or zip (positional, allow spaces)
     #[arg(value_parser, num_args = 0..)]
     path: Vec<String>,
+
+    #[arg(short = 'i', hide = true,action = ArgAction::SetTrue)]
+    keep_terminal_open: bool,
 }
 
 fn load_toml_config(path: &Path) -> Option<TomlValue> {
@@ -102,6 +105,7 @@ pub struct Config {
     pub max_card_width: String,
     pub skip_cache: bool,
     pub generation_concurrency: usize,
+    pub keep_terminal_open: bool,
 
     // Internal options
     pub is_zip: bool,
@@ -340,10 +344,16 @@ pub fn parse_config() -> Config {
     if cli.print_config {
         let c = Cli::command();
         let mut options: Vec<serde_json::Value> = Vec::new();
-        let hidden_args: Vec<String> = (vec!["config_file", "path", "print_config", "version"])
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let hidden_args: Vec<String> = (vec![
+            "config_file",
+            "path",
+            "print_config",
+            "version",
+            "keep_terminal_open",
+        ])
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
         c.get_arguments().for_each(|arg| {
             let id = arg.get_id().as_str();
             if hidden_args.iter().any(|s| s == id) {
@@ -423,6 +433,7 @@ pub fn parse_config() -> Config {
         config_hash: None,
         output_type: "png".to_string(),
         typst_input,
+        keep_terminal_open: cli.keep_terminal_open,
     };
     cfg.compute_hash();
 

@@ -240,4 +240,10 @@ fn run(output: impl OutputManager + 'static) {
     }
 
     output.send(OutputMessage::DbgDone);
+
+    if cfg.keep_terminal_open {
+        println!("Press Enter to exit...");
+        let mut input = String::new();
+        let _ = std::io::stdin().read_line(&mut input);
+    }
 }

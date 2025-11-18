@@ -7,13 +7,15 @@ import subprocess
 import os
 import pathlib
 import json
-from typing import TypedDict, List, Union
+from typing import TypedDict, List, Union, Optional
 import shlex
+from .detect_backend import check_backend
 
 
 import aqt.qt as qt
 
 ADDON_DIR = str(pathlib.Path(__file__).parent.resolve())
+BACKEND_PATH: Optional[str] = None
 
 
 class ConfigKeySource(Enum):
@@ -48,19 +50,16 @@ class Config(TypedDict):
 
 
 def convert_to_user_cli_command(params: list[str]) -> str:
-    command = [ADDON_DIR + "/run.sh"] + [shlex.quote(arg) for arg in params]
+    if not BACKEND_PATH:
+        raise ValueError("BACKEND_PATH is not set")
+    command = [BACKEND_PATH] + [shlex.quote(arg) for arg in params]
     return " ".join(command)
-    # command = (
-    #     ["cd", shlex.quote(ADDON_DIR), "&&"]
-    #     + [shlex.quote(arg) for arg in params]
-    #     + ["&&", "cd", "-"]
-    # )
-    command = [ADDON_DIR + "/run.sh"] + [shlex.quote(arg) for arg in params]
 
 
 def call_typ2anki_cli(params: list[str], showUser: bool):
-    # command = [sys.executable, "-m", "typ2anki_cli.main"] + params
-    command = [ADDON_DIR + "/run.sh", "--back"] + params
+    if not BACKEND_PATH:
+        raise ValueError("BACKEND_PATH is not set")
+    command = [BACKEND_PATH] + params
     if showUser:
         subprocess.run(command, shell=True, cwd=ADDON_DIR)
     else:
@@ -71,42 +70,6 @@ def call_typ2anki_cli(params: list[str], showUser: bool):
 
 
 def detect_terminal():
-    # try:
-    #     desktop = os.environ.get("XDG_CURRENT_DESKTOP") or ""
-    #     if "GNOME" in desktop:
-    #         return (
-    #             subprocess.check_output(
-    #                 [
-    #                     "gsettings",
-    #                     "get",
-    #                     "org.gnome.desktop.default-applications.terminal",
-    #                     "exec",
-    #                 ]
-    #             )
-    #             .decode()
-    #             .strip()
-    #             .strip("'")
-    #         )
-    #     elif "KDE" in desktop:
-    #         # KDE uses system settings and might not expose this easily
-    #         return "konsole"
-    #     elif "XFCE" in desktop:
-    #         return (
-    #             subprocess.check_output(
-    #                 [
-    #                     "xfconf-query",
-    #                     "-c",
-    #                     "xfce4-session",
-    #                     "-p",
-    #                     "/sessions/Failsafe/Client0_Command",
-    #                 ]
-    #             )
-    #             .decode()
-    #             .strip()
-    #         )
-    # except Exception:
-    #     return None
-    # Now, check for common terminal applications
     terminals = [ "wezterm","alacritty", "kitty","gnome-terminal", "konsole", "xterm", "terminator", "xfce4-terminal", "lxterminal", "terminology", "tilix",  "foot", "urxvt", ]  # fmt: skip
     for term in terminals:
         if shutil.which(term):
@@ -114,9 +77,84 @@ def detect_terminal():
     return None
 
 
+def openBackendSetup() -> None:
+    global BACKEND_PATH
+    backend = check_backend(download=False)
+    err = None
+    fatal_error = False
+    if isinstance(backend, tuple):
+        backend_path, error = backend
+        if backend_path:
+            BACKEND_PATH = backend_path
+        else:
+            fatal_error = True
+        if error:
+            err = error
+    elif backend:
+        BACKEND_PATH = backend
+    else:
+        fatal_error = True
+        err = "Unknown error detecting backend."
+    if not err:
+        openFileChoser()
+        return
+
+    dialog = qt.QDialog(mw)
+    mw.objBackendDialog = dialog  # type: ignore
+    dialog.setWindowTitle("typ2anki: Backend Setup")
+    layout = qt.QVBoxLayout(dialog)
+    label = qt.QLabel()
+    label.setWordWrap(True)
+    if fatal_error:
+        label.setText(
+            "A fatal error occurred while detecting the typ2anki backend:\n"
+            + str(err)
+        )
+    else:
+        label.setText(
+            "An error occurred while detecting the typ2anki backend:\n"
+            + str(err)
+            + "\n\nYou can try to set up the backend again, or ignore this error and choose a file or folder to compile."
+        )
+    layout.addWidget(label)
+    install_button = qt.QPushButton("Set up/update Backend")
+    layout.addWidget(install_button)
+    if not fatal_error:
+        skip_button = qt.QPushButton("Ignore error")
+        layout.addWidget(skip_button)
+
+        def skip_backend_setup():
+            try:
+                mw.objBackendDialog.close()  # type: ignore
+            except Exception:
+                pass
+            openFileChoser()
+
+        skip_button.clicked.connect(skip_backend_setup)
+
+    def setup_backend():
+        terminal = detect_terminal()
+        if terminal:
+            a = [terminal, "-e", "python", ADDON_DIR + "/detect_backend.py"]
+            subprocess.Popen(a)
+        else:
+            showInfo(
+                f"No terminal emulator found. Please run {ADDON_DIR}/detect_backend.py manually."
+            )
+
+    install_button.clicked.connect(setup_backend)
+
+    dialog.setLayout(layout)
+    dialog.show()
+
+
 def openFileChoser() -> None:
     # onChosenFile("/home/gm/Downloads/anki-sup (89).zip")
     # return
+    try:
+        mw.objFileDialog.close()  # type: ignore
+    except Exception:
+        pass
     dialog = qt.QDialog(mw)
     mw.objFileDialog = dialog  # type: ignore
     dialog.setWindowTitle("typ2anki: Choose File or Folder")
@@ -159,7 +197,7 @@ def onChosenFile(file_path: str) -> None:
     if r:
         if r.returncode == 0:
             try:
-                config: Config = json.loads(r.stderr)
+                config: Config = json.loads(r.stdout)
                 config["options_clis"] = {}
                 for option in config["options"]:
                     if option["cli_name"]:
@@ -175,7 +213,7 @@ def onChosenFile(file_path: str) -> None:
                 # )
                 show_config_dialog(config, file_path)
             except json.JSONDecodeError as e:
-                showInfo(f"Failed to decode JSON: {e}\nRaw output: {r.stderr}")
+                showInfo(f"Failed to decode JSON: {e}\nRaw output: {r.stdout}")
         else:
             showInfo(f"Error loading configuration: {r.stdout}\n{r.stderr}")
     else:
@@ -332,7 +370,6 @@ def show_config_dialog(config: "Config", file_path: str):
     # Add a button to copy the command
     def copy_command():
         command = generate_command()
-        command = command.replace("run.sh","run.sh -i")
         c = qt.QApplication.clipboard()
         if c:
             c.setText(command)
@@ -353,10 +390,13 @@ def show_config_dialog(config: "Config", file_path: str):
         terminal_button = qt.QPushButton(f"Open in {terminal}")
 
         def terminal_button_click():
+            if not BACKEND_PATH:
+                raise ValueError("BACKEND_PATH is not set")
             a = [
                 terminal,
                 "-e",
-                ADDON_DIR + "/run.sh",
+                BACKEND_PATH,
+                "-i",
                 *generate_command_params(),
             ]
             subprocess.Popen(a)
@@ -399,5 +439,5 @@ if sys.platform != "linux":
 
 
 action = qt.QAction("typ2anki", mw)
-qt.qconnect(action.triggered, openFileChoser)
+qt.qconnect(action.triggered, openBackendSetup)
 mw.form.menuTools.addAction(action)

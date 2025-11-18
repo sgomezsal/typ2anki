@@ -197,6 +197,12 @@ impl OutputManager for OutputConsole {
     }
 
     fn fail(&self) {
+        let cfg = config::get();
+        if cfg.keep_terminal_open {
+            println!("Press Enter to exit...");
+            let mut input = String::new();
+            let _ = std::io::stdin().read_line(&mut input);
+        }
         std::process::exit(1);
     }
 
