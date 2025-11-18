@@ -19,7 +19,7 @@ use std::sync::{Arc, RwLock};
 pub const DEFAULT_CONFIG_FILENAME: &str = "typ2anki.toml";
 
 #[derive(Parser, Debug)]
-#[command(about = "Typ2Anki config parser")]
+#[command(about = "Typ2Anki config parser", version)]
 struct Cli {
     /// Specify the path to the config file. Set to empty string to disable config file.
     #[arg(long = "config-file", default_value = DEFAULT_CONFIG_FILENAME)]
@@ -340,7 +340,7 @@ pub fn parse_config() -> Config {
     if cli.print_config {
         let c = Cli::command();
         let mut options: Vec<serde_json::Value> = Vec::new();
-        let hidden_args: Vec<String> = (vec!["config_file", "path", "print_config"])
+        let hidden_args: Vec<String> = (vec!["config_file", "path", "print_config", "version"])
             .iter()
             .map(|s| s.to_string())
             .collect();
