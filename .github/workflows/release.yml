@@ -76,13 +76,6 @@ jobs:
             - name: Install zip
               run: sudo apt-get install -y zip
 
-            - name: Bundle ankiaddon
-              continue-on-error: true
-              run: |
-                  ./bundle-ankiaddon.sh
-              env:
-                  _VERSION: "${{ steps.get_version.outputs.version }}"
-
             - name: Run GoReleaser
               id: goreleaser
               uses: goreleaser/goreleaser-action@v6

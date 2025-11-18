@@ -4,6 +4,9 @@ dist: goreleaser-dist
 project_name: typ2anki
 env:
     - BUILD_VERSION={{ if index .Env "_VERSION"  }}{{ .Env._VERSION }}{{ else }}{{ .Version }}{{ end }}
+before:
+    hooks:
+        - ./releaser-before.sh
 builds:
     - id: typ2anki
       builder: rust
@@ -13,9 +16,9 @@ builds:
       # Default: [ "x86_64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-pc-windows-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin" ]
       targets:
           - x86_64-unknown-linux-gnu
-          #   - x86_64-unknown-linux-musl
-          #   - aarch64-unknown-linux-musl
-          #   - x86_64-pc-windows-gnu
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
+          - x86_64-pc-windows-gnu
           #   - x86_64-apple-darwin
           #   - aarch64-apple-darwin
       flags:
@@ -37,7 +40,6 @@ archives:
             formats: ["zip"]
       allow_different_binary_count: true
       strip_binary_directory: true
-
 release:
     draft: true
     replace_existing_draft: true
@@ -49,7 +51,7 @@ release:
     footer: "Artifacts built automatically by GoReleaser"
     include_meta: true
     extra_files:
-        - glob: "../typ2anki.ankiaddon"
+        - glob: "typ2anki.ankiaddon"
 changelog:
     use: git
     format: "{{ .SHA }}: {{ .Message }} (by @{{ .AuthorName }})"
