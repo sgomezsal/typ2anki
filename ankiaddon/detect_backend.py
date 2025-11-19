@@ -33,16 +33,17 @@ def get_github_latest_tag() -> Optional[str]:
 
 def github_release_filename(version: str) -> Optional[str]:
     platform_map = {
-        "linux": "amd64-linux-musl",
-        "darwin": "amd64-macos",
-        "win32": "amd64-windows-gnu",
+        "linux": "x86_64-unknown-linux-musl",
+        "darwin": "x86_64-apple-darwin",
+        "win32": "x86_64-pc-windows-gnu",
     }
     platform_key = sys.platform
     if platform_key not in platform_map:
         return None
     platform_str = platform_map[platform_key]
     if platform.machine() == "aarch64":
-        platform_str = platform_str.replace("amd64", "arm64")
+        platform_str = platform_str.replace("x86_64", "aarch64")
+
     filename = f"typ2anki-v{version}-{platform_str}"
     if os.name == "nt":
         filename += ".zip"
