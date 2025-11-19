@@ -8,6 +8,10 @@ import platform
 import subprocess
 import tempfile
 
+os.environ["PATH"] = (
+    os.environ["PATH"] + ":" + os.path.expanduser("~/.cargo/bin")
+)
+
 ADDON_DIR = str(pathlib.Path(__file__).parent.resolve())
 REPO = "sgomezsal/typ2anki"
 EXECUTABLE_NAME = "typ2anki"
