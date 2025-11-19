@@ -62,7 +62,7 @@ struct Cli {
     print_config: bool,
 
     /// Path to Typst documents folder or zip (positional, allow spaces)
-    #[arg(value_parser, num_args = 0..)]
+    #[arg(value_parser, required=true, num_args = 0..)]
     path: Vec<String>,
 
     #[arg(short = 'i', hide = true,action = ArgAction::SetTrue)]
