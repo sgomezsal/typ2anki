@@ -1,6 +1,6 @@
 [package]
 name = "typ2anki"
-version = "1.0.1"
+version = "1.0.2"
 categories = ["visualization"]
 edition = "2024"
 homepage = "https://github.com/sgomezsal/typ2anki"
@@ -26,16 +26,6 @@ pkg-fmt = "tgz"
 
 [package.metadata.binstall.overrides.x86_64-pc-windows-gnu]
 pkg-fmt = "zip"
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-amd64-windows-gnu{ archive-suffix }"
-
-[package.metadata.binstall.overrides.x86_64-unknown-linux-gnu]
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-amd64-linux-gnu{ archive-suffix }"
-
-[package.metadata.binstall.overrides.x86_64-unknown-linux-musl]
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-amd64-linux-musl{ archive-suffix }"
-
-[package.metadata.binstall.overrides.aarch64-unknown-linux-musl]
-pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-arm64-linux-musl{ archive-suffix }"
 
 [dependencies]
 base64 = "0.22.1"
