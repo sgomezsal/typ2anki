@@ -2,7 +2,7 @@ import os
 import sys
 import pathlib
 import shutil
-from typing import Optional
+from typing import Optional, Union
 import requests
 import platform
 import subprocess
@@ -144,7 +144,9 @@ def test_version(
 
 
 # Returns optionaly the path to the executable, or (path, error) if download failed
-def check_backend(download: bool) -> Optional[str] | tuple[Optional[str], str]:
+def check_backend(
+    download: bool,
+) -> Union[Optional[str], tuple[Optional[str], str]]:
     executable_path = get_executable_path()
     latest_version = get_github_latest_tag()
     is_update = False
