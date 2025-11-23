@@ -149,7 +149,7 @@ def openBackendSetup() -> None:
     def setup_backend():
         terminal = detect_terminal()
         if terminal:
-            a = terminal + ["python", ADDON_DIR + "/detect_backend.py"]
+            a = terminal + [sys.executable, ADDON_DIR + "/detect_backend.py"]
             subprocess.Popen(a)
         else:
             showInfo(
