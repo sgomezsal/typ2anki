@@ -53,6 +53,8 @@ pub struct TypFileStats {
     pub empty_cards: usize,
     pub skipped_cards: usize,
 }
+pub type TFiles =
+    std::sync::Arc<std::sync::RwLock<std::collections::HashMap<PathBuf, TypFileStats>>>;
 
 impl TypFileStats {
     pub fn new(_filepath: PathBuf) -> Self {

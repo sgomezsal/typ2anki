@@ -17,6 +17,9 @@ use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, WorldExt};
 use typst_kit::fonts::{FontSearcher, FontSlot};
 
+// A wrapper efor the type which is used to only download a given package once at a time.
+pub type DownloadLocks = Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>;
+
 /// Main interface that determines the environment for Typst.
 pub struct TypstWrapperWorld {
     /// Root path to which files will be resolved.
@@ -48,6 +51,8 @@ pub struct TypstWrapperWorld {
 
     /// Datetime.
     time: time::OffsetDateTime,
+
+    download_locks: DownloadLocks,
 }
 
 impl TypstWrapperWorld {
@@ -77,7 +82,26 @@ impl TypstWrapperWorld {
             cache_directory,
             http: reqwest::blocking::Client::new(),
             files: Arc::new(Mutex::new(HashMap::new())),
+            download_locks: DownloadLocks::default(),
         }
+    }
+
+    pub fn new_with_download_locks(
+        root: String,
+        source: String,
+        inputs: &Vec<(String, String)>,
+        download_locks: DownloadLocks,
+    ) -> Self {
+        let mut world = Self::new(root, source, inputs);
+        world.download_locks = download_locks;
+        world
+    }
+
+    fn get_package_lock(&self, pkg_id: &str) -> Arc<Mutex<()>> {
+        let mut map = self.download_locks.lock().unwrap();
+        map.entry(pkg_id.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
     }
 }
 
@@ -136,6 +160,10 @@ impl TypstWrapperWorld {
     /// Downloads the package and returns the system path of the unpacked package.
     fn download_package(&self, package: &PackageSpec) -> PackageResult<PathBuf> {
         let package_subdir = format!("{}/{}/{}", package.namespace, package.name, package.version);
+
+        let lock = self.get_package_lock(package_subdir.as_str());
+        let _guard = lock.lock().expect("poisoned lock");
+
         let path = self.cache_directory.join(package_subdir);
 
         if path.exists() {
@@ -178,7 +206,6 @@ impl TypstWrapperWorld {
             _ = std::fs::remove_dir_all(&path);
             PackageError::MalformedArchive(Some(eco_format!("{error}")))
         })?;
-
         Ok(path)
     }
 }

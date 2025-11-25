@@ -1,13 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
     time::Instant,
 };
 
 use crate::{
     anki_api::get_anki_deck_name,
-    card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
+    card_wrapper::{CardInfo, CardModificationStatus, TFiles, TypFileStats},
     output::{OutputManager, OutputMessage},
     output_console::OutputConsole,
 };
@@ -25,6 +24,8 @@ mod typst_as_library;
 mod utils;
 
 fn main() {
+    config::get();
+    let _cfg_guard = config::ConfigGuard;
     let output = OutputConsole::new();
     run(output);
 }
@@ -33,7 +34,6 @@ fn run(output: impl OutputManager + 'static) {
     let output = Arc::new(output);
 
     let cfg = config::get();
-    let _cfg_guard = config::ConfigGuard;
 
     if cfg.dry_run {
         output.send(OutputMessage::DbgShowConfig(cfg.clone()));
@@ -64,10 +64,10 @@ fn run(output: impl OutputManager + 'static) {
     let mut i = 0;
 
     let mut cards: Vec<CardInfo> = Vec::new();
-    let files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>> = Arc::new(Mutex::new(HashMap::new()));
+    let files: TFiles = Arc::new(RwLock::new(HashMap::new()));
     let mut deck_names: HashSet<String> = HashSet::new();
 
-    let mut files_lock = files.lock().unwrap();
+    let mut files_lock = files.write().unwrap();
 
     // parse each typ file
     for filepath in &typ_files {
