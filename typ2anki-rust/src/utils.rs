@@ -4,7 +4,7 @@ use regex::Regex;
 use serde_json::Value;
 use std::cmp::max;
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{fs, io, iter};
 use zip::ZipArchive;
 
@@ -125,4 +125,13 @@ pub fn unzip_file_to_dir(zip_path: &Path, dest_path: &Path) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+pub fn get_typ2anki_tmp() -> PathBuf {
+    let cache_directory: PathBuf = std::env::var_os("CACHE_DIRECTORY")
+        .map(|os_path| os_path.into())
+        .unwrap_or(std::env::temp_dir());
+    let cache_directory = cache_directory.join("typ2anki_tmp");
+    std::fs::create_dir_all(&cache_directory).unwrap_or(());
+    cache_directory
 }

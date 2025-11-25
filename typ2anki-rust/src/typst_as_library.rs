@@ -61,6 +61,8 @@ impl TypstWrapperWorld {
             .collect();
         let library = Library::builder().with_inputs(inputs).build();
 
+        let cache_directory = crate::utils::get_typ2anki_tmp();
+
         Self {
             library: LazyHash::new(library),
             book: LazyHash::new(fonts.book),
@@ -72,9 +74,7 @@ impl TypstWrapperWorld {
                 source.into(),
             ),
             time: time::OffsetDateTime::now_utc(),
-            cache_directory: std::env::var_os("CACHE_DIRECTORY")
-                .map(|os_path| os_path.into())
-                .unwrap_or(std::env::temp_dir()),
+            cache_directory,
             http: reqwest::blocking::Client::new(),
             files: Arc::new(Mutex::new(HashMap::new())),
         }
