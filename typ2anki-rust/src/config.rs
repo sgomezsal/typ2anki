@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tempfile::tempdir;
+use tempfile::tempdir_in;
 
 use clap::parser::ValueSource;
 use clap::{ArgAction, CommandFactory, FromArgMatches, Parser};
@@ -243,7 +243,8 @@ pub fn parse_config() -> Config {
     };
 
     if is_zip {
-        let dir = tempdir()
+        let dir = utils::get_typ2anki_tmp();
+        let dir = tempdir_in(dir)
             .expect("Failed to create temporary directory for zip extraction")
             .path()
             .to_path_buf();
