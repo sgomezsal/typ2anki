@@ -1,11 +1,5 @@
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
-
 use crate::{
-    card_wrapper::{CardInfo, CardModificationStatus, TypFileStats},
+    card_wrapper::{CardInfo, CardModificationStatus, TFiles},
     config,
 };
 
@@ -27,8 +21,15 @@ impl OutputCompiledCardInfo {
     }
 }
 
+impl From<&CardInfo> for OutputCompiledCardInfo {
+    // Create OutputCompiledCardInfo from CardInfo without error message
+    fn from(card: &CardInfo) -> Self {
+        Self::build(card, None)
+    }
+}
+
 pub enum OutputMessage {
-    ListTypstFiles(Arc<Mutex<HashMap<PathBuf, TypFileStats>>>),
+    ListTypstFiles(TFiles),
     DbgShowConfig(config::Config),
     DbgConfigChangeDetection {
         total_cards: usize,
@@ -37,7 +38,7 @@ pub enum OutputMessage {
     DbgCreateDeck(String),
     DbgSavedCache,
     DbgCompilationDone {
-        files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>,
+        files: TFiles,
     },
     DbgDone,
     ParsingError(String),

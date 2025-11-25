@@ -2,10 +2,15 @@ use std::{
     collections::HashMap,
     io::{self, Write},
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
 };
 
-use crate::{card_wrapper::TypFileStats, config, output::*, utils};
+use crate::{
+    card_wrapper::{TFiles, TypFileStats},
+    config,
+    output::*,
+    utils,
+};
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
@@ -13,7 +18,7 @@ pub struct OutputConsole {
     multi: Arc<MultiProgress>,
     bars: Arc<Mutex<HashMap<String, ProgressBar>>>,
     bars_visible: Arc<Mutex<bool>>,
-    files: Mutex<Option<Arc<Mutex<HashMap<PathBuf, TypFileStats>>>>>,
+    files: RwLock<Option<TFiles>>,
 }
 
 const PROGRESS_BAR_LENGTH: u64 = 40;
@@ -24,15 +29,15 @@ impl OutputConsole {
             multi: Arc::new(MultiProgress::new()),
             bars: Arc::new(Mutex::new(HashMap::new())),
             bars_visible: Arc::new(Mutex::new(false)),
-            files: Mutex::new(None),
+            files: RwLock::new(None),
         }
     }
 
-    fn create_progress_bars(&self, files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>) {
-        let mut stored_files = self.files.lock().unwrap();
+    fn create_progress_bars(&self, files: TFiles) {
+        let mut stored_files = self.files.write().unwrap();
         *stored_files = Some(files.clone());
 
-        let files = files.lock().unwrap();
+        let files = files.read().unwrap();
         {
             let mut visible = self.bars_visible.lock().unwrap();
             *visible = true;
@@ -123,8 +128,8 @@ impl OutputConsole {
         if let Some(pb) = bars.get(file_name) {
             pb.inc(inc);
             if pb.position() >= pb.length().unwrap_or(0) {
-                let stored_files = self.files.lock().unwrap();
-                let stored_files = stored_files.as_ref().unwrap().lock().unwrap();
+                let stored_files = self.files.read().unwrap();
+                let stored_files = stored_files.as_ref().unwrap().read().unwrap();
                 let stats = stored_files
                     .iter()
                     .find(|(path, _)| path.to_string_lossy() == *file_name)
@@ -154,9 +159,9 @@ impl OutputConsole {
         self.println("=".repeat(width));
     }
 
-    fn finish_all_bars(&self, files: Arc<Mutex<HashMap<PathBuf, TypFileStats>>>) {
+    fn finish_all_bars(&self, files: TFiles) {
         let bars = self.bars.lock().unwrap();
-        let files = files.lock().unwrap();
+        let files = files.read().unwrap();
         for (file, pb) in bars.iter() {
             if !pb.is_finished() {
                 if file == "all" {
