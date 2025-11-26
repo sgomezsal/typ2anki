@@ -49,6 +49,7 @@ pub enum OutputMessage {
     PushedCard(OutputCompiledCardInfo),
     NoAnkiConnection,
     ErrorSavingCache(String),
+    TypstDownloadingPackage(String),
 }
 
 pub trait OutputManager: Send + Sync {

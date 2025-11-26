@@ -300,6 +300,9 @@ impl OutputManager for OutputConsole {
                 self.println("".to_string());
                 self.print_separator();
             }
+            OutputMessage::TypstDownloadingPackage(pkg) => {
+                self.println(format!("Downloading Typst package: {}", pkg));
+            }
             OutputMessage::DbgDone => {}
         }
     }
