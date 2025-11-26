@@ -61,7 +61,7 @@ static TYPST_PACKAGE_DOWNLOAD_LOCK: OnceCell<DownloadLocks> = OnceCell::new();
 
 pub fn compile_cards(
     cards: &Vec<CardInfo>,
-    output: Arc<impl OutputManager>,
+    output: Arc<impl OutputManager + 'static>,
     cache_manager: Arc<Mutex<CardsCacheManager>>,
     file_stats: TFiles,
 ) {
@@ -83,6 +83,7 @@ pub fn compile_cards(
             .get_or_init(|| DownloadLocks::default())
             .clone(),
     );
+    world.output_manager = Some(output.clone());
 
     let mut content_range: Range<usize> = 0..0;
 

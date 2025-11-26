@@ -17,6 +17,8 @@ use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, WorldExt};
 use typst_kit::fonts::{FontSearcher, FontSlot};
 
+use crate::output::OutputManager;
+
 // A wrapper efor the type which is used to only download a given package once at a time.
 pub type DownloadLocks = Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>;
 
@@ -53,6 +55,8 @@ pub struct TypstWrapperWorld {
     time: time::OffsetDateTime,
 
     download_locks: DownloadLocks,
+
+    pub output_manager: Option<Arc<dyn OutputManager + 'static>>,
 }
 
 impl TypstWrapperWorld {
@@ -83,6 +87,7 @@ impl TypstWrapperWorld {
             http: reqwest::blocking::Client::new(),
             files: Arc::new(Mutex::new(HashMap::new())),
             download_locks: DownloadLocks::default(),
+            output_manager: None,
         }
     }
 
@@ -170,7 +175,13 @@ impl TypstWrapperWorld {
             return Ok(path);
         }
 
-        eprintln!("downloading {package}");
+        if let Some(o) = &self.output_manager {
+            o.send(crate::output::OutputMessage::TypstDownloadingPackage(
+                format!("{package}"),
+            ));
+        } else {
+            eprintln!("downloading {package}");
+        }
         let url = format!(
             "https://packages.typst.org/{}/{}-{}.tar.gz",
             package.namespace, package.name, package.version,
