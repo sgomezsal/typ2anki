@@ -3124,7 +3124,7 @@ dependencies = [
 
 [[package]]
 name = "typ2anki"
-version = "1.0.5"
+version = "1.0.6"
 dependencies = [
  "base64",
  "clap",
