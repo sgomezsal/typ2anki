@@ -82,7 +82,7 @@ def detect_terminal() -> Optional[list[str]]:
         ["wezterm", "start", "--"],
         ["alacritty", "-e"],
         ["kitty", "-e"],
-        ["gnome-terminal", "--"],
+        ["gnome-terminal", "--maximize", "--"],
         ["konsole", "-e"],
         ["xterm", "-e"],
         ["terminator", "-e"],
