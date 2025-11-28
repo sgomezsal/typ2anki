@@ -18,6 +18,14 @@ ADDON_DIR = str(pathlib.Path(__file__).parent.resolve())
 BACKEND_PATH: Optional[str] = None
 
 
+def get_python_path() -> str:
+    l = ["python3", "python"]
+    for p in l:
+        if shutil.which(p):
+            return shutil.which(p)  # type: ignore
+    return sys.executable
+
+
 class ConfigKeySource(Enum):
     DEFAULT = 0
     CLI = 1
@@ -149,7 +157,7 @@ def openBackendSetup() -> None:
     def setup_backend():
         terminal = detect_terminal()
         if terminal:
-            a = terminal + [sys.executable, ADDON_DIR + "/detect_backend.py"]
+            a = terminal + [get_python_path(), ADDON_DIR + "/detect_backend.py"]
             subprocess.Popen(a)
         else:
             showInfo(
