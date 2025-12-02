@@ -134,7 +134,7 @@ mod parse_card_tree_sitter {
         };
         let source = content.as_bytes();
         let mut cursor = tree.root_node().walk();
-        let mut calls = Vec::new();
+        let mut cards = Vec::new();
 
         let handle_card_node =
             |func_call: Node, parent: &Node| -> Result<BarebonesCardInfo, &str> {
@@ -201,7 +201,7 @@ mod parse_card_tree_sitter {
                         }
                         Ok(mut c) => {
                             c.prelude_range = Some(0..prelude.len());
-                            calls.push(c.byte_range);
+                            cards.push(c);
                             // println!("Card: {:?}", c);
                         }
                     }
@@ -223,7 +223,29 @@ mod parse_card_tree_sitter {
                         }
                     }
                 } else if call_node.kind() == "import" {
-                    push_hashtag = false;
+                    if let Some(p) = call_node
+                        .child_by_field_name("import")
+                        .map(|n| n.utf8_text(source).ok())
+                        .flatten()
+                        .map(|s| s.trim_matches(VALUE_TRIM_CHARS).to_string())
+                    {
+                        if p.ends_with("ankiconf.typ") {
+                            push_hashtag = false;
+                            continue;
+                        }
+                    }
+                } else if call_node.kind() == "show" {
+                    if let Some(p) = call_node
+                        .child_by_field_name("value")
+                        .map(|n| n.utf8_text(source).ok())
+                        .flatten()
+                        .map(|s| s.trim_matches(VALUE_TRIM_CHARS).to_string())
+                    {
+                        if p.contains("conf(doc)") {
+                            push_hashtag = false;
+                            continue;
+                        }
+                    }
                 }
 
                 if push_hashtag {
@@ -257,9 +279,6 @@ mod parse_card_tree_sitter {
                 }
             }
         }
-        if !calls.is_empty() {
-            println!("Prelude: {}", prelude);
-        }
 
         // println!("Function calls found: {:?}", calls);
 
@@ -273,9 +292,17 @@ mod parse_card_tree_sitter {
         //     );
         // }
 
-        calls
+        cards
             .into_iter()
-            .map(|(start, end)| content[start..end].to_string())
+            .map(|c| {
+                let mut card_str = String::new();
+                if let Some(prelude_range) = &c.prelude_range {
+                    card_str.push_str(&prelude[prelude_range.start..prelude_range.end]);
+                    card_str.push_str("\n");
+                }
+                card_str.push_str(&content[c.byte_range.0..c.byte_range.1]);
+                card_str
+            })
             .collect()
     }
 }
@@ -383,7 +410,17 @@ pub fn parse_cards_from_file_content(
     let cfg = config::get();
 
     let mut file = TypFileStats::new(filepath.clone());
+
+    let start = std::time::Instant::now();
     let parsed = parse_cards_string(&content, &output);
+    let _duration = start.elapsed();
+    println!(
+        "Parsed {} cards from file {:?} in {:?}",
+        parsed.len(),
+        filepath.to_string_lossy(),
+        _duration
+    );
+
     if parsed.len() == 0 {
         return Ok(file);
     }
