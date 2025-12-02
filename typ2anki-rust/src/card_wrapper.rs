@@ -97,6 +97,20 @@ impl TypFileStats {
 }
 
 #[derive(Debug, Clone)]
+pub struct BarebonesCardInfo {
+    // The user defined unique card_id
+    pub card_id: String,
+    // The user defined deck_name
+    pub deck_name: String,
+    // The card's question
+    pub question: String,
+    // The card's answer
+    pub answer: String,
+    // range of bytes in the source file
+    pub byte_range: (usize, usize),
+}
+
+#[derive(Debug, Clone)]
 pub struct CardInfo {
     // The file name from which the card is compiled
     pub source_file: PathBuf,
