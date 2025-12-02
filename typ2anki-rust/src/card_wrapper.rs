@@ -1,6 +1,6 @@
 use colored::*;
 use regex::Regex;
-use std::{path::PathBuf, sync::LazyLock};
+use std::{ops::Range, path::PathBuf, sync::LazyLock};
 
 use crate::{cards_cache, config, utils};
 
@@ -108,6 +108,7 @@ pub struct BarebonesCardInfo {
     pub answer: String,
     // range of bytes in the source file
     pub byte_range: (usize, usize),
+    pub prelude_range: Option<Range<usize>>,
 }
 
 #[derive(Debug, Clone)]

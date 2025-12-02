@@ -56,9 +56,9 @@ pub fn get_ankiconf_hash() -> String {
 
 #[cfg(feature = "tree-sitter")]
 mod parse_card_tree_sitter {
+    use super::*;
     use crate::card_wrapper::BarebonesCardInfo;
 
-    use super::*;
     use std::sync::Mutex;
 
     use once_cell::sync::OnceCell;
@@ -115,6 +115,7 @@ mod parse_card_tree_sitter {
         output: &Arc<impl OutputManager + 'static>,
     ) -> Vec<String> {
         let cfg = config::get();
+        const CARD_FUNCTION_NAME: &str = "custom-card";
 
         let mut ts_parser = TS_PARSER
             .get_or_init(|| {
@@ -134,7 +135,6 @@ mod parse_card_tree_sitter {
         let source = content.as_bytes();
         let mut cursor = tree.root_node().walk();
         let mut calls = Vec::new();
-        let mut stack = vec![tree.root_node()];
 
         let handle_card_node =
             |func_call: Node, parent: &Node| -> Result<BarebonesCardInfo, &str> {
@@ -155,6 +155,7 @@ mod parse_card_tree_sitter {
                     question: ga!("q").unwrap_or(String::new()),
                     answer: ga!("a").unwrap_or(String::new()),
                     byte_range: (func_call.start_byte(), func_call.end_byte()),
+                    prelude_range: None,
                 })
             };
 
@@ -168,36 +169,96 @@ mod parse_card_tree_sitter {
             true
         };
 
-        while let Some(call_node) = stack.pop() {
-            if call_node.kind() == "call" && check_isnt_let(&call_node) {
-                if let Some(item) = get_function_from_call_node(source, call_node, "custom-card") {
+        let mut push_hashtag = false;
+        let mut prelude = String::new();
+        let mut previous_was_card = false;
+        for call_node in tree.root_node().children(&mut cursor) {
+            if call_node.kind() == "call" {
+                if !check_isnt_let(&call_node) {
+                    continue;
+                }
+                if let Some(item) =
+                    get_function_from_call_node(source, call_node, CARD_FUNCTION_NAME)
+                {
+                    push_hashtag = false;
+                    previous_was_card = true;
                     match handle_card_node(item, &call_node) {
                         Err(e) => {
                             let id = get_tagged_argument_value(source, &call_node, "id")
                                 .map(|s| s.trim_matches(VALUE_TRIM_CHARS).to_string())
                                 .unwrap_or("unknown_id".to_string());
                             output.send(OutputMessage::ParsingError(if !cfg.dry_run {
-                                format!("Warning: Failed to parse custom-card (id: {}): {}", id, e)
+                                format!(
+                                    "Warning: Failed to parse {CARD_FUNCTION_NAME} (id: {id}): {}",
+                                    e
+                                )
                             } else {
                                 format!(
-                                    "Failed to parse custom-card (id: {}): {}\n{}",
-                                    id,
-                                    e,
+                                    "Failed to parse {CARD_FUNCTION_NAME} (id: {id}): {e}\n{}",
                                     call_node.utf8_text(source).unwrap_or("unknown_content")
                                 )
                             }));
                         }
-                        Ok(c) => {
+                        Ok(mut c) => {
+                            c.prelude_range = Some(0..prelude.len());
                             calls.push(c.byte_range);
-                            println!("Card: {:?}", c);
+                            // println!("Card: {:?}", c);
                         }
                     }
                 }
-            }
+            } else {
+                if call_node.kind() == "let" {
+                    if let Some(func_name) = call_node
+                        .children(&mut call_node.walk())
+                        .find(|s| s.kind() == "call")
+                        .map(|n| n.child_by_field_name("item"))
+                        .flatten()
+                        .filter(|n| n.kind() == "identifier" || n.kind() == "ident")
+                        .map(|n| n.utf8_text(source).ok())
+                        .flatten()
+                    {
+                        if func_name == CARD_FUNCTION_NAME {
+                            push_hashtag = false;
+                            continue;
+                        }
+                    }
+                } else if call_node.kind() == "import" {
+                    push_hashtag = false;
+                }
 
-            for child in call_node.children(&mut cursor) {
-                stack.push(child);
+                if push_hashtag {
+                    prelude.push_str("#");
+                    push_hashtag = false;
+                }
+
+                match call_node.kind() {
+                    "#" => {
+                        push_hashtag = true;
+                    }
+                    "parbreak" => {
+                        if !previous_was_card {
+                            prelude.push_str("\n");
+                        }
+                    }
+                    "end" => {
+                        if !previous_was_card {
+                            prelude.push_str("\n");
+                        }
+                    }
+                    "comment" => {
+                        previous_was_card = false;
+                    }
+                    _ => {
+                        if let Some(s) = call_node.utf8_text(source).ok() {
+                            prelude.push_str(s);
+                        }
+                        previous_was_card = false;
+                    }
+                }
             }
+        }
+        if !calls.is_empty() {
+            println!("Prelude: {}", prelude);
         }
 
         // println!("Function calls found: {:?}", calls);
@@ -212,13 +273,18 @@ mod parse_card_tree_sitter {
         //     );
         // }
 
-        vec![]
+        calls
+            .into_iter()
+            .map(|(start, end)| content[start..end].to_string())
+            .collect()
     }
 }
 
 #[cfg(not(feature = "tree-sitter"))]
 mod parse_card_fallback {
-    pub fn parse_cards_string(content: &str) -> Vec<String> {
+    use super::*;
+
+    pub fn parse_cards_string(content: &str, _: &Arc<impl OutputManager + 'static>) -> Vec<String> {
         let mut results: Vec<String> = Vec::new();
         let card_types = ["#card(", "#custom-card("];
 
