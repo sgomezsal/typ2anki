@@ -46,9 +46,9 @@ toml = "0.7"
 tar = "0.4.44"
 
 # Typst
-typst = "0.14.0"
-typst-kit = { version = "0.14.0", default-features = false, features = ["embed-fonts"] }
-typst-render = "0.14.0"
+typst = "0.14.1"
+typst-kit = { version = "0.14.1", default-features = false, features = ["embed-fonts"] }
+typst-render = "0.14.1"
 
 codespan-reporting = "0.13.1"
 colored = "3.0.0"
