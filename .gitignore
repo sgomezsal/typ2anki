@@ -56,3 +56,4 @@ typ2anki.ankiaddon.temp
 *.ankiaddon
 ankiaddon/python_exec.txt
 user_files
+.zig-cache
