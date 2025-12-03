@@ -1,6 +1,6 @@
 use colored::*;
 use regex::Regex;
-use std::{path::PathBuf, sync::LazyLock};
+use std::{ops::Range, path::PathBuf, sync::LazyLock};
 
 use crate::{cards_cache, config, utils};
 
@@ -94,6 +94,21 @@ impl TypFileStats {
             }
         )
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct BarebonesCardInfo {
+    // The user defined unique card_id
+    pub card_id: String,
+    // The user defined deck_name
+    pub deck_name: String,
+    // The card's question
+    pub question: String,
+    // The card's answer
+    pub answer: String,
+    // range of bytes in the source file
+    pub byte_range: (usize, usize),
+    pub prelude_range: Option<Range<usize>>,
 }
 
 #[derive(Debug, Clone)]

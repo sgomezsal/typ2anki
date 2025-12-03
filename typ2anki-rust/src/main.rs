@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     anki_api::get_anki_deck_name,
-    card_wrapper::{CardInfo, CardModificationStatus, TFiles, TypFileStats},
+    card_wrapper::{CardInfo, CardModificationStatus, TFiles},
     output::{OutputManager, OutputMessage},
     output_console::OutputConsole,
 };
@@ -74,54 +74,37 @@ fn run(output: impl OutputManager + 'static) {
         if cfg.is_file_excluded(filepath.to_string_lossy().as_ref()) {
             continue;
         }
-        let mut file = TypFileStats::new(filepath.clone());
+        let file;
 
         if let Ok(content) = std::fs::read_to_string(filepath) {
-            let parsed = parse_file::parse_cards_string(&content);
-            if parsed.len() == 0 {
-                continue;
-            }
-            for card_str in parsed.into_iter() {
-                if parse_file::is_card_empty(&card_str) {
-                    file.empty_cards += 1;
+            file = match parse_file::parse_cards_from_file_content(
+                filepath,
+                content,
+                &mut cards_cache_manager,
+                output.clone(),
+                &mut i,
+                &mut deck_names,
+                &mut cards,
+            ) {
+                Ok(f) => f,
+                Err(e) => {
+                    output.send(OutputMessage::ParsingError(e));
                     continue;
                 }
-
-                match CardInfo::from_string(i, &card_str, filepath.clone()) {
-                    Ok(card_info) => {
-                        if cfg.is_deck_excluded(card_info.deck_name.as_str()) {
-                            file.skipped_cards += 1;
-                            continue;
-                        }
-                        cards_cache_manager.add_card_hash(
-                            &card_info.deck_name,
-                            &card_info.card_id,
-                            &card_info.content_hash,
-                        );
-                        deck_names.insert(card_info.deck_name.clone());
-                        cards.push(card_info);
-                        i += 1;
-                        file.total_cards += 1;
-                    }
-                    Err(_) => {
-                        output.send(OutputMessage::ParsingError(format!(
-                            "Warning: Failed to parse card in file {:?}",
-                            filepath.to_string_lossy()
-                        )));
-                    }
-                }
-            }
+            };
         } else {
             output.send(OutputMessage::ParsingError(format!(
                 "Warning: Failed to read file {:?}",
                 filepath.to_string_lossy()
             )));
+            continue;
         }
         if file.total_cards == 0 {
             continue;
         }
         files_lock.insert(filepath.clone(), file);
     }
+    output.fail();
 
     if cards.len() == 0 {
         output.send(OutputMessage::ParsingError(

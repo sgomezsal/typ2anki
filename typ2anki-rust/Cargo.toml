@@ -46,15 +46,21 @@ toml = "0.7"
 tar = "0.4.44"
 
 # Typst
-typst = "0.14.0"
-typst-kit = { version = "0.14.0", default-features = false, features = ["embed-fonts"] }
-typst-render = "0.14.0"
+typst = "0.14.1"
+typst-kit = { version = "0.14.1", default-features = false, features = ["embed-fonts"] }
+typst-render = "0.14.1"
 
 codespan-reporting = "0.13.1"
 colored = "3.0.0"
 indicatif = "0.18.3"
 num_cpus = "1.17.0"
 tempfile = "3.23.0"
+tree-sitter = { version = "~0.20.10", optional = true }
+tree-sitter-typst = { git = "https://github.com/uben0/tree-sitter-typst", tag = "v0.11.0", optional = true }
 walkdir = "2.5.0"
 zip = "6.0.0"
 zune-inflate = { version = "0.2.54", default-features = false, features = ["gzip", "std"] }
+
+[features]
+default = []
+tree-sitter = ["dep:tree-sitter", "dep:tree-sitter-typst"]
