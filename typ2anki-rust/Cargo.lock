@@ -395,6 +395,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "codebook-tree-sitter-typst"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7fc4a810d33666309e650213bff15317386f45eb9676635e5b990f9f5f36a0d"
+dependencies = [
+ "cc",
+ "tree-sitter 0.25.10",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2529,6 +2539,7 @@ version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "402a6f66d8c709116cf22f558eab210f5a50187f702eb4d7e5ef38d9a7f1c79c"
 dependencies = [
+ "indexmap",
  "itoa",
  "memchr",
  "ryu",
@@ -2684,6 +2695,12 @@ dependencies = [
  "psm",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b2231b7c3057d5e4ad0156fb3dc807d900806020c5ffa3ee6ff2c8c76fb8520"
 
 [[package]]
 name = "strict-num"
@@ -3107,13 +3124,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "tree-sitter-typst"
-version = "0.0.1"
-source = "git+https://github.com/uben0/tree-sitter-typst?tag=v0.11.0#13863ddcbaa7b68ee6221cea2e3143415e64aea4"
+name = "tree-sitter"
+version = "0.25.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78f873475d258561b06f1c595d93308a7ed124d9977cb26b148c2084a4a3cc87"
 dependencies = [
  "cc",
- "tree-sitter",
+ "regex",
+ "regex-syntax",
+ "serde_json",
+ "streaming-iterator",
+ "tree-sitter-language",
 ]
+
+[[package]]
+name = "tree-sitter-language"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4013970217383f67b18aef68f6fb2e8d409bc5755227092d32efb0422ba24b8"
 
 [[package]]
 name = "try-lock"
@@ -3147,6 +3175,7 @@ version = "1.0.7"
 dependencies = [
  "base64",
  "clap",
+ "codebook-tree-sitter-typst",
  "codespan-reporting",
  "colored",
  "glob",
@@ -3163,8 +3192,7 @@ dependencies = [
  "tempfile",
  "time",
  "toml 0.7.8",
- "tree-sitter",
- "tree-sitter-typst",
+ "tree-sitter 0.20.10",
  "typst",
  "typst-kit",
  "typst-render",
