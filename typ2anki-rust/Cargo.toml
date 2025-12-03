@@ -1,6 +1,6 @@
 [package]
 name = "typ2anki"
-version = "1.0.6"
+version = "1.0.7"
 categories = ["visualization"]
 edition = "2024"
 homepage = "https://github.com/sgomezsal/typ2anki"
