@@ -12,23 +12,22 @@
         pkgs = inputs.nixpkgs.legacyPackages.${system};
       in
       {
-        default = pkgs.python3.pkgs.buildPythonApplication {
+        default = pkgs.rustPlatform.buildRustPackage {
           pname = "typ2anki";
-          version = "unstable-2025-01-08";
-          pyproject = true;
-
+          version = "1.0.9";
           src = ./.;
 
-          build-system = [
-            pkgs.python3.pkgs.setuptools
+          cargoLock = {
+            lockFile = ./Cargo.lock;
+          };
+
+          nativeBuildInputs = [
+            pkgs.pkg-config
+            pkgs.rustPlatform.bindgenHook
           ];
 
-          dependencies = [
-            pkgs.python3.pkgs.requests
-          ];
-
-          pythonImportsCheck = [
-            "typ2anki"
+          buildInputs = [
+            pkgs.openssl
           ];
         };
       }
@@ -45,16 +44,16 @@
           packages = [
             inputs.self.packages.${system}.default
             pkgs.typst
-            pkgs.pylint
-            pkgs.python313Packages.python-lsp-server
-            pkgs.black
+            pkgs.rustc
+            pkgs.cargo
+            pkgs.rust-analyzer
+            pkgs.clippy
           ];
-          shellHook = # bash
-            ''
-              echo "Welecome to typ2anki shell"
-              which typ2anki
-              typst --version
-            '';
+          shellHook = ''
+            echo "Welcome to typ2anki (Rust version) shell"
+            typ2anki --version
+            typst --version
+          '';
         };
       }
     ) inputs.nixpkgs.legacyPackages;
