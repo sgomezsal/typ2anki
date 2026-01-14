@@ -15,10 +15,13 @@
         default = pkgs.rustPlatform.buildRustPackage {
           pname = "typ2anki";
           version = "1.0.9";
-          src = ./.;
+          
+          # Cambiamos el origen a la subcarpeta de Rust
+          src = ./typ2anki-rust;
 
           cargoLock = {
-            lockFile = ./Cargo.lock;
+            # Cambiamos la ruta del lockfile
+            lockFile = ./typ2anki-rust/Cargo.lock;
           };
 
           nativeBuildInputs = [
