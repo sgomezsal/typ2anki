@@ -3,62 +3,71 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
-  outputs = inputs: {
-    packages = builtins.mapAttrs (
-      system: _:
-      let
-        pkgs = inputs.nixpkgs.legacyPackages.${system};
-      in
-      {
-        default = pkgs.rustPlatform.buildRustPackage {
-          pname = "typ2anki";
-          version = "1.0.9";
+  outputs = { self, nixpkgs, rust-overlay, ... } @ inputs: 
+    let
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+    in
+    {
+      packages = forAllSystems (system:
+        let
+          overlays = [ (import rust-overlay) ];
+          pkgs = import nixpkgs { inherit system overlays; };
           
-          # Cambiamos el origen a la subcarpeta de Rust
-          src = ./typ2anki-rust;
+          # Obtenemos la versión de Rust que soporta Edition 2024
+          rustToolchain = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
 
-          cargoLock = {
-            # Cambiamos la ruta del lockfile
-            lockFile = ./typ2anki-rust/Cargo.lock;
+          rustPlatform = pkgs.makeRustPlatform {
+            cargo = rustToolchain;
+            rustc = rustToolchain;
           };
+        in
+        {
+          default = rustPlatform.buildRustPackage {
+            pname = "typ2anki";
+            version = "1.0.9";
+            src = ./typ2anki-rust;
 
-          nativeBuildInputs = [
-            pkgs.pkg-config
-            pkgs.rustPlatform.bindgenHook
-          ];
+            cargoLock = {
+              lockFile = ./typ2anki-rust/Cargo.lock;
+            };
 
-          buildInputs = [
-            pkgs.openssl
-          ];
-        };
-      }
-    ) inputs.nixpkgs.legacyPackages;
+            nativeBuildInputs = [
+              pkgs.pkg-config
+              pkgs.rustPlatform.bindgenHook
+            ];
 
-    devShells = builtins.mapAttrs (
-      system: _:
-      let
-        pkgs = inputs.nixpkgs.legacyPackages.${system};
-      in
-      {
-        default = pkgs.mkShell {
-          name = "typ2anki";
-          packages = [
-            inputs.self.packages.${system}.default
-            pkgs.typst
-            pkgs.rustc
-            pkgs.cargo
-            pkgs.rust-analyzer
-            pkgs.clippy
-          ];
-          shellHook = ''
-            echo "Welcome to typ2anki (Rust version) shell"
-            typ2anki --version
-            typst --version
-          '';
-        };
-      }
-    ) inputs.nixpkgs.legacyPackages;
-  };
+            buildInputs = [
+              pkgs.openssl
+            ];
+          };
+        }
+      );
+
+      devShells = forAllSystems (system:
+        let
+          overlays = [ (import rust-overlay) ];
+          pkgs = import nixpkgs { inherit system overlays; };
+          rustToolchain = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
+        in
+        {
+          default = pkgs.mkShell {
+            name = "typ2anki";
+            packages = [
+              self.packages.${system}.default
+              pkgs.typst
+              rustToolchain
+              pkgs.rust-analyzer
+            ];
+            shellHook = ''
+              echo "Welcome to typ2anki (Rust Edition 2024) shell"
+              typst --version
+            '';
+          };
+        }
+      );
+    };
 }
