@@ -321,86 +321,127 @@ mod parse_card_tree_sitter {
 mod parse_card_fallback {
     use super::*;
 
+    use std::ops::Range;
+
+    enum Parser {
+        Scanning,
+        InPrelude {
+            prelude_start: usize
+        },
+        InCard {
+            prelude: Option<Range<usize>>,
+            card_start: usize,
+            paren_depth: i32
+        }
+    }
+
+    const CARD_TYPES: [&str; 2] = ["#card(", "#custom-card("];
+    const PRELUDE_STARTS: [&str; 2] = ["START", "start"];
+
+    /// Checks if the `content` string has a card identifier starting at byte index `i`
+    /// If it does, this returns the byte index of the first character after the opening paren.
+    fn parse_card_start(content: &str, i: usize) -> Option<usize> {
+        for card in CARD_TYPES {
+            if content[i..].starts_with(card) {
+                return Some(i + card.len());
+            }
+        }
+        None
+    }
+
+    /// Checks if the `content string has a line or block comment starting at byte index `i`
+    /// If it does, this returns a range indicating the inside of the comment, and the byte index
+    /// of the first character after the end of the comment (after the linefeed for line comments)
+    fn parse_comment(content: &str, i: usize) -> Option<(Range<usize>, usize)> {
+        let len = content.len();
+        if content[i..].starts_with("//") { // Line comment
+            // Get the index of the character after the comment's end
+            let end = content[i..].find('\n').map(|end| end + i).unwrap_or(len);
+            let next = content.ceil_char_boundary(end + 1); // `ceil_char_boundary` returns `len` if its argument overflows `len`
+
+            Some((i+2..end, next))
+        } else if content[i..].starts_with("/*") { // Block comment
+            let end = content[i+2..].find("*/").map(|end| end + i+2).unwrap_or(len);
+            let next = content.ceil_char_boundary(end + 2); // skip */
+            Some(((i+2..end), next))
+        } else { None }
+    }
+
     pub fn parse_cards_string(
         content: &str,
         _: &Arc<impl OutputManager + 'static>,
         no_prelude: bool,
     ) -> Vec<String> {
         let mut results: Vec<String> = Vec::new();
-        let card_types = ["#card(", "#custom-card("];
 
-        let mut inside_card = false;
-        let mut balance: i32 = 0;
-        let mut current_card = String::new();
+        let mut state = Parser::Scanning;
         let mut i: usize = 0;
         let len = content.len();
 
-        let mut current_prelude = String::new();
-        let mut prelude_started = false;
-
         while i < len {
-            if !inside_card {
-                if card_types.iter().any(|ct| content[i..].starts_with(ct)) {
-                    inside_card = true;
-                    for ct in &card_types {
-                        if content[i..].starts_with(ct) {
-                            balance = 1;
-                            current_card.clear();
-                            current_card.push_str(ct);
-                            i += ct.len();
-                            break;
+            match &mut state {
+                Parser::Scanning => {
+                    // Card start (no prelude)
+                    if let Some(next) = parse_card_start(content, i) {
+                        state = Parser::InCard { card_start: i, prelude: None, paren_depth: 1 };
+                        i = next;
+                    } else if let Some((comment_inside, next)) = parse_comment(content, i) { // Comment
+                        // Check for prelude start:
+                        let trimmed = content[comment_inside].trim_start();
+                        if !no_prelude && PRELUDE_STARTS.iter().any(|start| trimmed.starts_with(start)) {
+                            state = Parser::InPrelude { prelude_start: next };
                         }
-                    }
-                    continue;
-                }
-
-                if !no_prelude && !prelude_started {
-                    if content[i..].starts_with("//START") || content[i..].starts_with("//start") {
-                        prelude_started = true;
-                        i += "//START".len();
-                        continue;
-                    } else if content[i..].starts_with("// START")
-                        || content[i..].starts_with("// start")
-                    {
-                        prelude_started = true;
-                        i += "// START".len();
-                        continue;
+                        i = next;
+                    } 
+                    else {
+                        let ch = content[i..].chars().next().unwrap();
+                        i += ch.len_utf8();
                     }
                 }
-            }
+                Parser::InPrelude { prelude_start } => {
+                    // Card start (with prelude)
+                    if let Some(next) = parse_card_start(content, i) {
+                        state = Parser::InCard {
+                            prelude: Some((*prelude_start)..i),
+                            card_start: i,
+                            paren_depth: 1
+                        };
+                        i = next;
+                    } else { // We don't care about comments in prelude
+                        let ch = content[i..].chars().next().unwrap();
+                        i += ch.len_utf8();
+                    }
+                },
+                Parser::InCard { prelude, card_start, paren_depth } => {
+                    // Skip comments completely to avoid false parenthesises in comments
+                    if let Some((_, next)) = parse_comment(content, i) {
+                        i = next;
+                        continue;
+                    }
 
-            if inside_card {
-                let ch = content[i..].chars().next().unwrap();
-                current_card.push(ch);
-                if ch == '(' {
-                    balance += 1;
-                } else if ch == ')' {
-                    balance -= 1;
-                }
-                i += ch.len_utf8();
+                    let ch = content[i..].chars().next().unwrap();
+                    i += ch.len_utf8();
 
-                if balance == 0 {
-                    results.push(format!(
-                        "{}\n{}",
-                        current_prelude.trim(),
-                        current_card.trim()
-                    ));
-                    inside_card = false;
-                    current_card.clear();
-                }
-                continue;
-            }
+                    // Count parenthesis scope depth as we are reading the card
+                    // Once we leave the last parenthesis, we're done reading the card
+                    *paren_depth += match ch {
+                        '(' => 1, ')' => -1, _ => 0
+                    };
 
-            // Not inside a card and prelude only tracked after marker found
-            let ch = content[i..].chars().next().unwrap();
-            if prelude_started {
-                if ch == '\n' && current_prelude.ends_with('\n') {
-                    // skip duplicate new line``
-                } else {
-                    current_prelude.push(ch);
-                }
+                    if *paren_depth == 0 {
+                        let card_interval = (*card_start)..i;
+                        let result = if let Some(prelude) = prelude {
+                            format!("{}\n{}", &content[prelude.clone()], &content[card_interval])
+                        } else {
+                            format!("{}", &content[card_interval])
+                        };
+
+                        results.push(result);
+
+                        state = Parser::Scanning;
+                    }
+                },
             }
-            i += ch.len_utf8();
         }
 
         results
