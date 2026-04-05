@@ -319,7 +319,37 @@ mod parse_card_tree_sitter {
 
 #[cfg(not(feature = "tree-sitter"))]
 mod parse_card_fallback {
+    use std::ops::Range;
+
     use super::*;
+
+    const CARD_TYPES: [&str; 2] = ["#card(", "#custom-card("];
+    const PRELUDE_STARTS: [&str; 2] = ["START", "start"];
+
+    /// Checks if the `content string has a line or block comment starting at byte index `i`
+    /// If it does, this returns a range indicating the inside of the comment, and the byte index
+    /// of the first character after the end of the comment (after the linefeed for line comments)
+    fn parse_comment(content: &str, i: usize) -> Option<(Range<usize>, usize)> {
+        let len = content.len();
+        if content[i..].starts_with("//") {
+            // Line comment
+            // Get the index of the character after the comment's end
+            let end = content[i..].find('\n').map(|end| end + i).unwrap_or(len);
+            let next = content.ceil_char_boundary(end + 1); // `ceil_char_boundary` returns `len` if its argument overflows `len`
+
+            Some((i + 2..end, next))
+        } else if content[i..].starts_with("/*") {
+            // Block comment
+            let end = content[i + 2..]
+                .find("*/")
+                .map(|end| end + i + 2)
+                .unwrap_or(len);
+            let next = content.ceil_char_boundary(end + 2); // skip */
+            Some(((i + 2..end), next))
+        } else {
+            None
+        }
+    }
 
     pub fn parse_cards_string(
         content: &str,
@@ -327,7 +357,6 @@ mod parse_card_fallback {
         no_prelude: bool,
     ) -> Vec<String> {
         let mut results: Vec<String> = Vec::new();
-        let card_types = ["#card(", "#custom-card("];
 
         let mut inside_card = false;
         let mut balance: i32 = 0;
@@ -339,34 +368,32 @@ mod parse_card_fallback {
         let mut prelude_started = false;
 
         while i < len {
-            if !inside_card {
-                if card_types.iter().any(|ct| content[i..].starts_with(ct)) {
-                    inside_card = true;
-                    for ct in &card_types {
-                        if content[i..].starts_with(ct) {
-                            balance = 1;
-                            current_card.clear();
-                            current_card.push_str(ct);
-                            i += ct.len();
-                            break;
-                        }
-                    }
-                    continue;
-                }
-
-                if !no_prelude && !prelude_started {
-                    if content[i..].starts_with("//START") || content[i..].starts_with("//start") {
-                        prelude_started = true;
-                        i += "//START".len();
-                        continue;
-                    } else if content[i..].starts_with("// START")
-                        || content[i..].starts_with("// start")
+            if let Some((comment_inside, next)) = parse_comment(content, i) {
+                if !no_prelude && !inside_card && !prelude_started {
+                    let trimmed = content[comment_inside].trim_start();
+                    if PRELUDE_STARTS
+                        .iter()
+                        .any(|start| trimmed.starts_with(start))
                     {
                         prelude_started = true;
-                        i += "// START".len();
-                        continue;
                     }
                 }
+                i = next;
+                continue;
+            }
+
+            if !inside_card && CARD_TYPES.iter().any(|ct| content[i..].starts_with(ct)) {
+                inside_card = true;
+                for ct in &CARD_TYPES {
+                    if content[i..].starts_with(ct) {
+                        balance = 1;
+                        current_card.clear();
+                        current_card.push_str(ct);
+                        i += ct.len();
+                        break;
+                    }
+                }
+                continue;
             }
 
             if inside_card {
