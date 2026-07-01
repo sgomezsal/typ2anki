@@ -34,7 +34,13 @@ fn send_request(payload: Value) -> Result<Value, String> {
             .post(ANKI_CONNECT_URL)
             .json(&payload)
             .send()
-            .map_err(|e| format!("request error: {:?}", e))?,
+            .map_err(|e| {
+                format!(
+                    "request error: {:?} (status: {})",
+                    e,
+                    e.status().unwrap_or_default()
+                )
+            })?,
     )
 }
 

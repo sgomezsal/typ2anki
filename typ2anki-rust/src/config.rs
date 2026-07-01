@@ -169,6 +169,13 @@ impl Config {
         let s = serde_json::to_string(&relevant_config).unwrap();
         self.config_hash = Some(utils::hash_string(&s));
     }
+
+    pub fn path_relative_to_root(&self, p: &PathBuf) -> String {
+        pathdiff::diff_paths(p, &self.path)
+            .unwrap_or(p.clone())
+            .to_string_lossy()
+            .into_owned()
+    }
 }
 
 // RAII guard to ensure Config::destruct() is called when run() exits or unwinds.
