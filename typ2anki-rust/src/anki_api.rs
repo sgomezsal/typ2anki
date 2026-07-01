@@ -36,9 +36,10 @@ fn send_request(payload: Value) -> Result<Value, String> {
             .send()
             .map_err(|e| {
                 format!(
-                    "request error: {:?} (status: {})",
+                    "request error: {:?} (status: {}, action {:?})",
                     e,
-                    e.status().unwrap_or_default()
+                    e.status().unwrap_or_default(),
+                    payload.get("action").cloned().unwrap_or(Value::Null)
                 )
             })?,
     )
@@ -167,7 +168,13 @@ pub fn find_note_id_by_tag(tag: &str) -> Result<Vec<i64>, String> {
         "version": 6,
         "params": { "query": format!("tag:{}", tag) }
     });
-    let res = send_request(payload)?;
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("reqwest build error: {}", e))?;
+    let res = send_request_and_retry(&client, payload)?;
+
     if let Some(arr) = res.as_array() {
         let mut out = Vec::new();
         for v in arr {
@@ -236,6 +243,27 @@ fn get_basic_model_name() -> &'static ModelInfo {
     })
 }
 
+pub fn send_request_and_retry(client: &Client, payload: Value) -> Result<Value, String> {
+    let mut attempts = 0;
+    loop {
+        match client.post(ANKI_CONNECT_URL).json(&payload).send() {
+            Ok(res) => return _handle_response(res),
+            Err(e) => {
+                if attempts <= 2 && e.status().is_none() {
+                    attempts += 1;
+                } else {
+                    return Err(format!(
+                        "request error: {} (status: {}, action: {:?})",
+                        e,
+                        e.status().unwrap_or_default(),
+                        payload.get("action").cloned().unwrap_or(Value::Null)
+                    ));
+                }
+            }
+        }
+    }
+}
+
 pub struct CardUploaderThread {
     client: Client,
 }
@@ -257,19 +285,7 @@ impl CardUploaderThread {
                 "data": base64_data
             }
         });
-        _handle_response(
-            self.client
-                .post(ANKI_CONNECT_URL)
-                .json(&payload)
-                .send()
-                .map_err(|e| {
-                    format!(
-                        "request error: {} (status: {})",
-                        e,
-                        e.status().unwrap_or_default()
-                    )
-                })?,
-        )?;
+        send_request_and_retry(&self.client, payload)?;
         Ok(filename)
     }
 
@@ -324,7 +340,7 @@ impl CardUploaderThread {
                 }
             })
         };
-        send_request(payload)?;
+        send_request_and_retry(&self.client, payload)?;
         Ok(())
     }
 }
