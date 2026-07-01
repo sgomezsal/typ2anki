@@ -80,7 +80,9 @@ fn run(output: impl OutputManager + 'static) {
         let p = cfg.path_relative_to_root(filepath);
         if cfg.is_file_excluded(p.as_ref()) {
             if cfg.dry_run {
-                println!("Skipping excluded file: {}", p);
+                output.send(OutputMessage::ParsingError(
+                    format!("Skipping excluded file: {}", p).to_string(),
+                ));
             }
             continue;
         }
