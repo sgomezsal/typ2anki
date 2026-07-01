@@ -77,7 +77,11 @@ fn run(output: impl OutputManager + 'static) {
 
     // parse each typ file
     for filepath in &typ_files {
-        if cfg.is_file_excluded(filepath.to_string_lossy().as_ref()) {
+        let p = cfg.path_relative_to_root(filepath);
+        if cfg.is_file_excluded(p.as_ref()) {
+            if cfg.dry_run {
+                println!("Skipping excluded file: {}", p);
+            }
             continue;
         }
         let file;

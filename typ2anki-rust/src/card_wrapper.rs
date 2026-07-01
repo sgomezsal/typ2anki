@@ -196,12 +196,7 @@ impl CardInfo {
 
     pub fn path_relative_to_root(&self) -> String {
         let cfg = config::get();
-
-        // relative path from cfg.path to output_path
-        pathdiff::diff_paths(&self.source_file, &cfg.path)
-            .unwrap_or(self.source_file.clone())
-            .to_string_lossy()
-            .into_owned()
+        cfg.path_relative_to_root(&self.source_file)
     }
 
     pub fn relative_ankiconf_path(&self) -> String {
