@@ -182,33 +182,30 @@ impl OutputConsole {
         }
     }
 }
+
 impl OutputManager for OutputConsole {
-    fn ask_yes_no(&self, _question: &str) -> bool {
-        {
-            loop {
-                print!("{} [Y/n]: ", _question);
-                let _ = io::stdout().flush();
-                let mut input = String::new();
-                if io::stdin().read_line(&mut input).is_err() {
-                    return false;
-                }
-                match input.trim().to_lowercase().as_str() {
-                    "y" | "yes" | "" => return true,
-                    "n" | "no" => return false,
-                    _ => println!("Please answer 'y' or 'n'."),
-                }
+    fn ask_yes_no(&self, _question: &str, _: bool) -> bool {
+        loop {
+            print!("{} [Y/n]: ", _question);
+            let _ = io::stdout().flush();
+            let mut input = String::new();
+            if io::stdin().read_line(&mut input).is_err() {
+                return false;
+            }
+            match input.trim().to_lowercase().as_str() {
+                "y" | "yes" | "" => return true,
+                "n" | "no" => return false,
+                _ => println!("Please answer 'y' or 'n'."),
             }
         }
     }
 
     fn fail(&self) {
-        let cfg = config::get();
-        if cfg.keep_terminal_open {
-            println!("Press Enter to exit...");
-            let mut input = String::new();
-            let _ = std::io::stdin().read_line(&mut input);
-        }
-        std::process::exit(1);
+        self.send(OutputMessage::Fail(None));
+    }
+    
+    fn fail_with_reason(&self, reason: String) {
+        self.send(OutputMessage::Fail(Some(reason)));
     }
 
     fn send(&self, msg: OutputMessage) {
@@ -304,6 +301,18 @@ impl OutputManager for OutputConsole {
                 self.println(format!("Downloading Typst package: {}", pkg));
             }
             OutputMessage::DbgDone => {}
+            OutputMessage::Fail(reason) => {
+                let cfg = config::get();
+                if let Some(r) = reason {
+                    println!("Fail reason: {}", r);
+                }
+                if cfg.keep_terminal_open {
+                    println!("Press Enter to exit...");
+                    let mut input = String::new();
+                    let _ = std::io::stdin().read_line(&mut input);
+                }
+                std::process::exit(1);
+            }
         }
     }
 }

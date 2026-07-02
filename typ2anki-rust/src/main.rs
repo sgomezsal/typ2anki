@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     anki_api::get_anki_deck_name,
-    card_wrapper::{CardInfo, CardModificationStatus, TFiles},
+    card_wrapper::{CardInfo, CardModificationStatus, TFiles, TFilesExt},
     output::{OutputManager, OutputMessage},
     output_console::OutputConsole,
 };
@@ -231,6 +231,10 @@ fn run(output: impl OutputManager + 'static) {
     // At the end, save the cache
     if !cfg.dry_run {
         cards_cache_manager.save_cache(output.as_ref());
+    }
+    
+    if files.total_errors() > 0 {
+        output.fail_with_reason("There were some compilation errors".to_string());
     }
 
     output.send(OutputMessage::DbgDone);

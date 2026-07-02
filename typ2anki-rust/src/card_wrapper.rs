@@ -78,6 +78,23 @@ impl TFilesExt for TFiles {
 }
 
 
+pub trait TFilesExt {
+    fn total_errors(&self) -> usize;
+}
+
+impl TFilesExt for TFiles {
+    fn total_errors(&self) -> usize {
+        self.read()
+            .map(|map| {
+                map.values()
+                    .map(|stats| stats.total_errors())
+                    .sum()
+            })
+            .unwrap_or(0)
+    }
+}
+
+
 impl TypFileStats {
     pub fn new(_filepath: PathBuf) -> Self {
         Self {
