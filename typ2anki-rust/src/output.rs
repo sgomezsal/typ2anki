@@ -55,7 +55,7 @@ pub enum OutputMessage {
 
 pub trait OutputManager: Send + Sync {
     fn send(&self, msg: OutputMessage);
-    fn ask_yes_no(&self, question: &str) -> bool;
+    fn ask_yes_no(&self, question: &str, default_answer: bool) -> bool;
     fn fail(&self);
     fn fail_with_reason(&self, reason: String);
 }
