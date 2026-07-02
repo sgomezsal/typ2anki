@@ -232,6 +232,10 @@ fn run(output: impl OutputManager + 'static) {
     if !cfg.dry_run {
         cards_cache_manager.save_cache(output.as_ref());
     }
+    
+    if files.total_errors() > 0 {
+        output.fail_with_reason("There were some compilation errors".to_string());
+    }
 
     output.send(OutputMessage::DbgDone);
 
