@@ -240,4 +240,8 @@ fn run(output: impl OutputManager + 'static) {
         let mut input = String::new();
         let _ = std::io::stdin().read_line(&mut input);
     }
+    
+    if files.total_errors() > 0 {
+        
+    }
 }
