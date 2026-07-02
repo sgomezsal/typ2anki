@@ -59,7 +59,7 @@ pub struct TypFileStats {
     pub skipped_cards: usize,
 }
 pub type TFiles =
-    std::sync::Arc<std::sync::RwLock<std::collections::HashMap<PathBuf, TypFileStats>>>
+    std::sync::Arc<std::sync::RwLock<std::collections::HashMap<PathBuf, TypFileStats>>>;
 
 pub trait TFilesExt {
     fn total_errors(&self) -> usize;
