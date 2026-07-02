@@ -87,7 +87,7 @@ impl CardsCacheManager {
             && total_cards > 0
             && (config_changes as f64) / (total_cards as f64) >= 0.2
         {
-            if output.ask_yes_no("A configuration or ankiconf.typ change has been detected. Do you wish to recompile all cards with this new config? (Y/n)") {
+            if output.ask_yes_no("A configuration or ankiconf.typ change has been detected. Do you wish to recompile all cards with this new config? (y/N)", false) {
                     *cfg.recompile_on_config_change.write().unwrap() = Some(true);
                 } else {
                     *cfg.recompile_on_config_change.write().unwrap() = Some(false);
