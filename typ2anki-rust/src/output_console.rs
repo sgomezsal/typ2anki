@@ -302,7 +302,7 @@ impl OutputManager for OutputConsole {
                 self.println(format!("Downloading Typst package: {}", pkg));
             }
             OutputMessage::DbgDone => {}
-                OutputMessage::Fail(reason) => {
+            OutputMessage::Fail(reason) => {
                 let cfg = config::get();
                 if let Some(r) = reason {
                     println!("Fail reason: {}", r);
@@ -311,8 +311,8 @@ impl OutputManager for OutputConsole {
                     println!("Press Enter to exit...");
                     let mut input = String::new();
                     let _ = std::io::stdin().read_line(&mut input);
-                }
-                std::process::exit(1);
             }
+            std::process::exit(1);
+        }
     }
 }
