@@ -184,7 +184,7 @@ impl OutputConsole {
 }
 
 impl OutputManager for OutputConsole {
-    fn ask_yes_no(&self, _question: &str) -> bool {
+    fn ask_yes_no(&self, _question: &str, _: bool) -> bool {
         loop {
             print!("{} [Y/n]: ", _question);
             let _ = io::stdout().flush();
