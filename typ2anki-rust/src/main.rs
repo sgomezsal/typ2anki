@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     anki_api::get_anki_deck_name,
-    card_wrapper::{CardInfo, CardModificationStatus, TFiles},
+    card_wrapper::{CardInfo, CardModificationStatus, TFiles, TFilesExt},
     output::{OutputManager, OutputMessage},
     output_console::OutputConsole,
 };
