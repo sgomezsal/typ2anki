@@ -202,13 +202,11 @@ impl OutputManager for OutputConsole {
     }
 
     fn fail(&self) {
-        let cfg = config::get();
-        if cfg.keep_terminal_open {
-            println!("Press Enter to exit...");
-            let mut input = String::new();
-            let _ = std::io::stdin().read_line(&mut input);
-        }
-        std::process::exit(1);
+        self.send(OutputMessage::Fail(None));
+    }
+    
+    fn fail_with_reason(&self, reason: String) {
+        self.send(OutputMessage::Fail(Some(reason)));
     }
 
     fn send(&self, msg: OutputMessage) {
@@ -304,6 +302,19 @@ impl OutputManager for OutputConsole {
                 self.println(format!("Downloading Typst package: {}", pkg));
             }
             OutputMessage::DbgDone => {}
+        }
+        
+        OutputMessage::Fail(reason) => {
+            let cfg = config::get();
+            if let Some(r) = reason {
+                println!("Fail reason: {}", r);
+            }
+            if cfg.keep_terminal_open {
+                println!("Press Enter to exit...");
+                let mut input = String::new();
+                let _ = std::io::stdin().read_line(&mut input);
+            }
+            std::process::exit(1);
         }
     }
 }
