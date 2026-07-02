@@ -182,21 +182,20 @@ impl OutputConsole {
         }
     }
 }
+
 impl OutputManager for OutputConsole {
     fn ask_yes_no(&self, _question: &str) -> bool {
-        {
-            loop {
-                print!("{} [Y/n]: ", _question);
-                let _ = io::stdout().flush();
-                let mut input = String::new();
-                if io::stdin().read_line(&mut input).is_err() {
-                    return false;
-                }
-                match input.trim().to_lowercase().as_str() {
-                    "y" | "yes" | "" => return true,
-                    "n" | "no" => return false,
-                    _ => println!("Please answer 'y' or 'n'."),
-                }
+        loop {
+            print!("{} [Y/n]: ", _question);
+            let _ = io::stdout().flush();
+            let mut input = String::new();
+            if io::stdin().read_line(&mut input).is_err() {
+                return false;
+            }
+            match input.trim().to_lowercase().as_str() {
+                "y" | "yes" | "" => return true,
+                "n" | "no" => return false,
+                _ => println!("Please answer 'y' or 'n'."),
             }
         }
     }
@@ -311,8 +310,9 @@ impl OutputManager for OutputConsole {
                     println!("Press Enter to exit...");
                     let mut input = String::new();
                     let _ = std::io::stdin().read_line(&mut input);
+                }
+                std::process::exit(1);
             }
-            std::process::exit(1);
         }
     }
 }
