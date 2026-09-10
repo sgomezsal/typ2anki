@@ -38,16 +38,17 @@ pub fn compile_cards_concurrent(
         let chunk_size = total.div_ceil(n_batches);
 
         let mut handles = Vec::with_capacity(n_batches);
-        for i in 0..n_batches {
-            let start = i * chunk_size;
-            let end = ((i + 1) * chunk_size).min(total);
-            let batch = cards[start..end].to_vec();
+
+        for chunk in cards.chunks(chunk_size) {
+            let batch = chunk.to_vec();
             let output_clone = output.clone();
             let cache_manager_clone = cache_manager.clone();
             let file_stats_clone = file_stats.clone();
+
             let handle = std::thread::spawn(move || {
                 compile_cards(&batch, output_clone, cache_manager_clone, file_stats_clone);
             });
+
             handles.push(handle);
         }
 
