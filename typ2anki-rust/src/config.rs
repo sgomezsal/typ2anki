@@ -45,6 +45,12 @@ struct Cli {
     #[arg(long = "max-card-width", default_value = "auto")]
     max_card_width: String,
 
+    /// Automatically set dark mode colors (for foreground and background)
+    /// Sets background to #2C2C2C and foreground to #ffffff
+    /// To use it in the config, set the background_color and foreground_color to these manually
+    #[arg(long = "dark-mode")]
+    dark: bool,
+
     /// Background color, in either hex (#ffffff) or rgb(rrr,ggg,bbb)
     /// Default is #ffffff (white). Use 'none' for transparent background.
     #[arg(long = "background-color")]
@@ -261,6 +267,14 @@ pub fn parse_config() -> Config {
     let mut recompile_on_config_change = cli.recompile_on_config_change.clone();
     let mut background_color = cli.background_color.clone();
     let mut foreground_color = cli.foreground_color.clone();
+    if cli.dark {
+        if background_color.is_none() {
+            background_color = Some("#2C2C2C".to_string());
+        }
+        if foreground_color.is_none() {
+            foreground_color = Some("#ffffff".to_string());
+        }
+    }
 
     #[derive(Debug)]
     enum ConfigSource {
@@ -372,6 +386,16 @@ pub fn parse_config() -> Config {
             {
                 recompile_on_config_change = v.to_string();
                 source_map.insert("recompile_on_config_change", ConfigSource::File);
+            }
+
+            if let Some(&ConfigSource::Default) = source_map.get("dark")
+                && let Some(v) = table.get("dark").and_then(|x| x.as_bool())
+            {
+                if v {
+                    background_color = Some("#2C2C2C".to_string());
+                    foreground_color = Some("#ffffff".to_string());
+                }
+                source_map.insert("dark", ConfigSource::File);
             }
 
             if let Some(&ConfigSource::Default) = source_map.get("background_color")
