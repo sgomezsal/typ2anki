@@ -14,7 +14,7 @@ use html_escape::encode_double_quoted_attribute;
 
 use crate::card_wrapper::CardInfo;
 use crate::utils;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 
 pub const DEFAULT_CONFIG_FILENAME: &str = "typ2anki.toml";
 
@@ -44,6 +44,16 @@ struct Cli {
     /// Max card width, 'auto' or a value
     #[arg(long = "max-card-width", default_value = "auto")]
     max_card_width: String,
+
+    /// Background color, in either hex (#ffffff) or rgb(rrr,ggg,bbb)
+    /// Default is #ffffff (white). Use 'none' for transparent background.
+    #[arg(long = "background-color")]
+    background_color: Option<String>,
+
+    /// Foreground color, in either hex (#ffffff) or rgb(rrr,ggg,bbb)
+    /// Default is #000000 (black). Use 'none' for transparent foreground.
+    #[arg(long = "foreground-color")]
+    foreground_color: Option<String>,
 
     /// Force reupload of all images
     #[arg(long = "no-cache")]
@@ -103,6 +113,10 @@ pub struct Config {
     pub asked_path: String,
     pub path: PathBuf,
     pub recompile_on_config_change: Arc<RwLock<Option<bool>>>,
+    pub background_color: Option<String>,
+    bg_color_cache: OnceLock<String>,
+    pub foreground_color: Option<String>,
+    fg_color_cache: OnceLock<String>,
 
     // Processed options / defaults
     pub dry_run: bool,
@@ -164,6 +178,8 @@ impl Config {
             "output_type": self.output_type,
             "max_card_width": self.max_card_width,
             "exclude_decks": self.exclude_decks_string.clone().sort(),
+            "background_color": self.background_color.clone(),
+            "foreground_color": self.foreground_color.clone(),
         });
         let relevant_config = utils::json_sorted_keys(&relevant_config);
         let s = serde_json::to_string(&relevant_config).unwrap();
@@ -175,6 +191,25 @@ impl Config {
             .unwrap_or(p.clone())
             .to_string_lossy()
             .into_owned()
+    }
+
+    fn resolve_color(c: &Option<String>, default: &str) -> String {
+        match c {
+            Some(c) if c == "none" || (c.starts_with("rgb") && !c.contains("\"")) => c.clone(),
+            Some(c) if c.starts_with('#') => format!("rgb(\"{}\")", c),
+            Some(c) => c.clone(),
+            None => default.to_string(),
+        }
+    }
+
+    pub fn resolve_background_color(&self) -> &str {
+        self.bg_color_cache
+            .get_or_init(|| Self::resolve_color(&self.background_color, "rgb(255,255,255)"))
+    }
+
+    pub fn resolve_foreground_color(&self) -> &str {
+        self.fg_color_cache
+            .get_or_init(|| Self::resolve_color(&self.foreground_color, "rgb(0,0,0)"))
     }
 }
 
@@ -224,6 +259,8 @@ pub fn parse_config() -> Config {
     let mut skip_cache = cli.no_cache;
     let mut generation_concurrency = parse_generation_concurrency(&cli.generation_concurrency);
     let mut recompile_on_config_change = cli.recompile_on_config_change.clone();
+    let mut background_color = cli.background_color.clone();
+    let mut foreground_color = cli.foreground_color.clone();
 
     #[derive(Debug)]
     enum ConfigSource {
@@ -335,6 +372,20 @@ pub fn parse_config() -> Config {
             {
                 recompile_on_config_change = v.to_string();
                 source_map.insert("recompile_on_config_change", ConfigSource::File);
+            }
+
+            if let Some(&ConfigSource::Default) = source_map.get("background_color")
+                && let Some(v) = table.get("background_color").and_then(|x| x.as_str())
+            {
+                background_color = Some(v.to_string());
+                source_map.insert("background_color", ConfigSource::File);
+            }
+
+            if let Some(&ConfigSource::Default) = source_map.get("foreground_color")
+                && let Some(v) = table.get("foreground_color").and_then(|x| x.as_str())
+            {
+                foreground_color = Some(v.to_string());
+                source_map.insert("foreground_color", ConfigSource::File);
             }
         }
     }
@@ -456,6 +507,10 @@ pub fn parse_config() -> Config {
         typst_input,
         keep_terminal_open: cli.keep_terminal_open,
         auto_number_file: cli.auto_number.clone(),
+        background_color,
+        foreground_color,
+        bg_color_cache: OnceLock::new(),
+        fg_color_cache: OnceLock::new(),
     };
     cfg.compute_hash();
 

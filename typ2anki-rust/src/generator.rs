@@ -32,12 +32,16 @@ pub fn generate_card_file_content(ankiconf_relative_path: String, card_content: 
     let page_configuration = if cfg.output_type == "html" {
         "".to_string()
     } else {
-        r#"#set page(
+        format!(
+            r#"#set page(
   width: auto,
   height: auto,
   margin: 3pt,
-  fill: rgb(255,255,255),
-)"#
+  fill: {},
+)
+"#,
+            cfg.resolve_background_color(),
+        )
         .to_string()
     };
 
@@ -53,6 +57,15 @@ pub fn generate_card_file_content(ankiconf_relative_path: String, card_content: 
     } else {
         template.push('\n');
     }
+
+    if cfg.foreground_color.is_some() {
+        template.push_str(&format!(
+            "#set text(fill: {})\n//#show math.equation: set text(fill: {})\n",
+            cfg.resolve_foreground_color(),
+            cfg.resolve_foreground_color(),
+        ));
+    }
+
     template.push_str(&display_with_width);
     template.push_str("\n\n");
 
