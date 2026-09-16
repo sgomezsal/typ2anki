@@ -33,7 +33,6 @@ fn main() -> anyhow::Result<()> {
     let is_non_interactive = !atty::is(atty::Stream::Stdout) || std::env::var("CI").is_ok();
 
     if is_non_interactive {
-        println!("Detected non-interactive environment. Running in non-interactive mode.");
         let output = OutputNonInteractive::new();
         full_run(output)?;
     } else {

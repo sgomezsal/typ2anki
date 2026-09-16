@@ -3208,7 +3208,7 @@ dependencies = [
 
 [[package]]
 name = "typ2anki"
-version = "1.0.17"
+version = "1.0.18"
 dependencies = [
  "anyhow",
  "atty",
