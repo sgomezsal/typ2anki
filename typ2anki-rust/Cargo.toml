@@ -1,6 +1,6 @@
 [package]
 name = "typ2anki"
-version = "1.0.16"
+version = "1.0.17"
 categories = ["visualization"]
 edition = "2024"
 homepage = "https://github.com/sgomezsal/typ2anki"
@@ -51,6 +51,7 @@ typst-kit = { version = "0.14.1", default-features = false, features = ["embed-f
 typst-render = "0.14.1"
 
 anyhow = "1.0.100"
+atty = "0.2.14"
 codespan-reporting = "0.13.1"
 colored = "3.0.0"
 indicatif = "0.18.3"

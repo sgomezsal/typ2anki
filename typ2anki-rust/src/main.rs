@@ -9,6 +9,7 @@ use crate::{
     card_wrapper::{CardInfo, CardModificationStatus, TFiles, TFilesExt},
     output::{OutputManager, OutputMessage},
     output_console::OutputConsole,
+    output_non_interactive::OutputNonInteractive,
 };
 
 mod anki_api;
@@ -20,15 +21,31 @@ mod config;
 mod generator;
 mod output;
 mod output_console;
+mod output_non_interactive;
 mod parse_file;
 mod typst_as_library;
 mod utils;
 
 fn main() -> anyhow::Result<()> {
-    let cfg = config::get();
+    let _cfg = config::get();
     let _cfg_guard = config::ConfigGuard;
-    let output = OutputConsole::new();
 
+    let is_non_interactive = !atty::is(atty::Stream::Stdout) || std::env::var("CI").is_ok();
+
+    if is_non_interactive {
+        println!("Detected non-interactive environment. Running in non-interactive mode.");
+        let output = OutputNonInteractive::new();
+        full_run(output)?;
+    } else {
+        let output = OutputConsole::new();
+        full_run(output)?;
+    }
+
+    Ok(())
+}
+
+fn full_run(output: impl OutputManager + 'static) -> anyhow::Result<()> {
+    let cfg = config::get();
     if cfg.auto_number_file.is_some() {
         return auto_number::run_auto_number(output);
     }
@@ -232,7 +249,7 @@ fn run(output: impl OutputManager + 'static) {
     if !cfg.dry_run {
         cards_cache_manager.save_cache(output.as_ref());
     }
-    
+
     if files.total_errors() > 0 {
         output.fail_with_reason("There were some compilation errors".to_string());
     }
@@ -244,8 +261,6 @@ fn run(output: impl OutputManager + 'static) {
         let mut input = String::new();
         let _ = std::io::stdin().read_line(&mut input);
     }
-    
-    if files.total_errors() > 0 {
-        
-    }
+
+    if files.total_errors() > 0 {}
 }

@@ -17,6 +17,17 @@ pub enum CardModificationStatus {
     Unchanged,
 }
 
+impl std::fmt::Display for CardModificationStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CardModificationStatus::Unknown => write!(f, "Unknown"),
+            CardModificationStatus::New => write!(f, "New"),
+            CardModificationStatus::Updated => write!(f, "Updated"),
+            CardModificationStatus::Unchanged => write!(f, "Unchanged"),
+        }
+    }
+}
+
 type CardCountPair = (usize, usize); // (total count, errors)
 
 fn card_pair_status(
@@ -68,15 +79,10 @@ pub trait TFilesExt {
 impl TFilesExt for TFiles {
     fn total_errors(&self) -> usize {
         self.read()
-            .map(|map| {
-                map.values()
-                    .map(|stats| stats.total_errors())
-                    .sum()
-            })
+            .map(|map| map.values().map(|stats| stats.total_errors()).sum())
             .unwrap_or(0)
     }
 }
-
 
 impl TypFileStats {
     pub fn new(_filepath: PathBuf) -> Self {

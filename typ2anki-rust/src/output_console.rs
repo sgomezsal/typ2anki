@@ -203,7 +203,7 @@ impl OutputManager for OutputConsole {
     fn fail(&self) {
         self.send(OutputMessage::Fail(None));
     }
-    
+
     fn fail_with_reason(&self, reason: String) {
         self.send(OutputMessage::Fail(Some(reason)));
     }
@@ -252,16 +252,14 @@ impl OutputManager for OutputConsole {
             OutputMessage::SkipCompileCard(OutputCompiledCardInfo {
                 file: relative_file,
                 ..
-            }) => {
-                self.progress_on_bar(&relative_file, 1);
-            }
-            OutputMessage::CompiledCard(OutputCompiledCardInfo { .. }) => {}
-            OutputMessage::PushedCard(OutputCompiledCardInfo {
+            })
+            | OutputMessage::PushedCard(OutputCompiledCardInfo {
                 file: relative_file,
                 ..
             }) => {
                 self.progress_on_bar(&relative_file, 1);
             }
+            OutputMessage::CompiledCard(OutputCompiledCardInfo { .. }) => {}
             OutputMessage::CompileError(OutputCompiledCardInfo {
                 card_id,
                 file: relative_file,
